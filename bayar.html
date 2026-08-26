@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pembayaran · Noisy Verse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="legal-nav">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <svg class="logo-svg" width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgn" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgn)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Noisy<span>Verse</span>
+      </a>
+      <div class="lang-switch">
+        <button class="lang-btn active" data-lang="id" type="button">ID</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+      </div>
+      <a href="index.html" class="btn-back"><i class="ph ph-arrow-left"></i> <span data-i18n="pay.back">Kembali ke beranda</span></a>
+    </div>
+  </header>
+
+  <main class="legal-page">
+    <span class="legal-badge">Pembayaran</span>
+    <h1 data-i18n="pay.title">Selesaikan pembayaran.</h1>
+    <p class="legal-updated" data-i18n="pay.sub">Pilih paket, bayar, lalu konfirmasi lewat bot Telegram.</p>
+
+    <div class="pay-grid">
+      <div class="try-card small">
+        <h3><i class="ph-fill ph-package"></i> <span data-i18n="pay.package">Paket kamu</span></h3>
+        <div class="pay-summary" id="paySummary">
+          <div class="pay-plan-name" id="payPlanName">Memuat…</div>
+          <div class="pay-plan-price" id="payPlanPrice"></div>
+        </div>
+
+        <label class="field-label" for="couponInput" data-i18n="pay.coupon">Punya kode kupon?</label>
+        <div class="pay-coupon-row">
+          <input type="text" id="couponInput" class="try-input" placeholder="Kode kupon" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-ghost" id="applyCouponBtn" type="button"><i class="ph ph-tag"></i> <span data-i18n="pay.apply">Terapkan</span></button>
+        </div>
+        <p class="coupon-msg" id="couponMsg" hidden></p>
+
+        <div class="login-notice" id="loginNotice" hidden>
+          <i class="ph-fill ph-info"></i>
+          <span>Login dulu agar paket terhubung ke akunmu &amp; aktif otomatis setelah di-ACC.</span>
+          <a href="login.html?next=%2Fbayar.html" class="btn btn-ghost btn-sm">Masuk</a>
+        </div>
+
+        <label class="field-label" for="payTg" data-i18n="pay.tg">Username Telegram kamu</label>
+        <div class="tg-input-group">
+          <span class="tg-prefix">@</span>
+          <input type="text" id="payTg" class="try-input" placeholder="username" autocomplete="off" spellcheck="false" />
+        </div>
+        <button class="btn btn-primary btn-block" id="createOrderBtn" type="button" style="margin-top: 16px;">
+          <i class="ph ph-ticket"></i> <span data-i18n="pay.create">Buat Kode Pesanan</span>
+        </button>
+
+        <div class="order-result" id="payCodeBox" hidden>
+          <i class="ph-fill ph-check-circle"></i>
+          <span><span data-i18n="pay.created">Kode pesanan kamu:</span> <strong id="payCode"></strong></span>
+        </div>
+
+        <div class="pay-steps">
+          <div class="pay-step"><span>1</span><p data-i18n="pay.step1">Isi username Telegram & buat kode pesanan.</p></div>
+          <div class="pay-step"><span>2</span><p data-i18n="pay.step2">Bayar sesuai nominal paket lewat QRIS / transfer.</p></div>
+          <div class="pay-step"><span>3</span><p data-i18n="pay.step3">Kirim bukti bayar ke bot Telegram, kami proses segera.</p></div>
+        </div>
+      </div>
+
+      <div class="try-card small">
+        <h3><i class="ph-fill ph-credit-card"></i> <span data-i18n="pay.method">Metode pembayaran</span></h3>
+
+        <div id="payMethods">
+          <div class="pay-method">
+            <div class="pay-method-head">
+              <i class="ph-fill ph-qr-code"></i> QRIS
+            </div>
+            <div class="qris-frame">
+              <div class="qris-frame-head">
+                <span class="qris-brand">QRIS</span>
+                <span class="qris-sub">Pembayaran</span>
+              </div>
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=NOISY-VERSE" alt="Kode QRIS" />
+              <div class="qris-frame-foot">a.n. <b>Noisy Verse</b> · scan di semua aplikasi pembayaran</div>
+            </div>
+          </div>
+        </div>
+
+        <a class="btn btn-primary btn-block" id="confirmBot" href="#" target="_blank" rel="noopener" hidden>
+          <i class="ph-fill ph-telegram-logo"></i> <span data-i18n="pay.confirm">Konfirmasi via Bot Telegram</span>
+        </a>
+        <a class="btn btn-ghost btn-block" id="confirmChat" href="https://t.me/noisy02" target="_blank" rel="noopener" style="margin-top: 10px;" hidden>
+          <i class="ph ph-telegram-logo"></i> <span data-i18n="pay.confirm.chat">Konfirmasi via Chat Telegram</span>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="legal-footer">
+    © 2026 Noisy Verse · <a href="privacy.html">Kebijakan Privasi</a> · <a href="terms.html">Syarat & Ketentuan</a>
+  </footer>
+
+  <script src="js/lang.js"></script>
+  <script src="js/announcements.js"></script>
+  <script src="js/user-assistant.js"></script><script src="js/payment-brands.js"></script><script src="js/bayar.js"></script>
+</body>
+</html>

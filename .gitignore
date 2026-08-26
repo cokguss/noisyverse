@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Data lama (file JSON) — sekarang dipindah ke Supabase, JANGAN commit (berisi data user asli)
+backend/data/
+
+# Env & secret
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# Log & OS
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Noisy Verse — Ubah Website & Repo Jadi Prompt AI</title>
+  <meta name="description" content="Noisy Verse mengubah website dan repository GitHub menjadi prompt AI siap pakai, lengkap dengan design system. Cepat, akurat, tanpa ribet." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <svg class="logo-svg" width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgn" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgn)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Noisy<span>Verse</span>
+      </a>
+      <nav class="nav-links">
+        <a href="coba.html" data-i18n="nav.reverse">Reverse</a>
+        <a href="prd.html">PRD Generator</a>
+        <a href="#keunggulan" data-i18n="nav.features">Keunggulan</a>
+        <a href="#cara-order" data-i18n="nav.how">Cara Kerja</a>
+        <a href="#harga" data-i18n="nav.pricing">Harga</a>
+        <a href="#testimoni" data-i18n="nav.testi">Testimoni</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      </nav>
+      <div class="lang-switch">
+        <button class="lang-btn active" data-lang="id" type="button">ID</button>
+        <button class="lang-btn" data-lang="en" type="button">EN</button>
+      </div>
+      <a href="login.html" class="btn btn-ghost btn-sm nav-login"><i class="ph ph-sign-in"></i> <span data-i18n="nav.login">Masuk</span></a>
+      <a href="coba.html" class="btn btn-primary btn-sm nav-cta">
+        <i class="ph ph-magic-wand"></i> <span data-i18n="nav.reverse">Reverse</span>
+      </a>
+
+      <div class="profile-menu" id="profileMenu" hidden>
+        <div class="pm-head">
+          <span class="pm-avatar" id="pmAvatar">N</span>
+          <div class="pm-id">
+            <strong id="pmName"></strong>
+            <small id="pmRole">Akun Noisy Verse</small>
+          </div>
+        </div>
+        <div class="pm-links">
+          <a href="coba.html"><i class="ph ph-play-circle"></i> Playground</a>
+          <a href="prd.html"><i class="ph ph-file-text"></i> PRD Generator</a>
+          <a href="bayar.html"><i class="ph ph-credit-card"></i> Beli Kuota</a>
+          <a href="admin.html" id="pmAdmin" hidden><i class="ph ph-shield-star"></i> Admin Panel</a>
+        </div>
+        <button class="pm-logout" id="pmLogout" type="button"><i class="ph ph-sign-out"></i> Keluar</button>
+      </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Buka menu">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="coba.html" data-i18n="nav.reverse">Reverse</a>
+      <a href="prd.html">PRD Generator</a>
+      <a href="#keunggulan" data-i18n="nav.features">Keunggulan</a>
+      <a href="#cara-order" data-i18n="nav.how">Cara Kerja</a>
+      <a href="#harga" data-i18n="nav.pricing">Harga</a>
+      <a href="#testimoni" data-i18n="nav.testi">Testimoni</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      <a href="https://t.me/noisy02" target="_blank" rel="noopener" class="btn btn-primary"><i class="ph ph-telegram-logo"></i> <span data-i18n="hero.cta2">Chat Telegram</span></a>
+      <a href="login.html" id="mobileLogout" hidden><i class="ph ph-sign-out"></i> Keluar</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <span class="hero-badge reveal">
+            <span class="pulse-dot"></span>
+            <span data-i18n="hero.badge">Website &amp; Repo · Jadi Prompt AI</span>
+          </span>
+          <h1 class="reveal">
+            <span data-i18n="hero.title1">Website Apapun,</span><br />
+            <span class="accent-glow" data-i18n="hero.title2">Jadi Prompt AI.</span>
+          </h1>
+          <p class="hero-sub reveal" data-i18n="hero.sub">
+            Tempel URL website atau repo GitHub, dapatkan prompt AI lengkap plus design system-nya. Siap dipakai untuk bikin ulang project.
+          </p>
+          <div class="hero-cta reveal">
+            <a href="coba.html" class="btn btn-primary">
+              <i class="ph ph-magic-wand"></i> <span data-i18n="hero.cta">Coba Gratis</span>
+            </a>
+            <a href="https://t.me/noisy02" target="_blank" rel="noopener" class="btn btn-ghost"><i class="ph ph-telegram-logo"></i> <span data-i18n="hero.cta2">Chat Telegram</span></a>
+          </div>
+          <div class="visitor-chip reveal" id="visitorChip" hidden>
+            <span class="live-dot"></span>
+            <strong id="vLive">0</strong> online
+            <span class="v-sep">·</span>
+            <i class="ph ph-eye"></i>
+            <strong id="vTotal">0</strong> kunjungan
+          </div>
+        </div>
+        <div class="hero-visual reveal" aria-hidden="true">
+          <div class="hero-demo">
+            <div class="demo-window">
+              <div class="demo-header">
+                <span class="demo-dot"></span>
+                <span class="demo-dot"></span>
+                <span class="demo-dot"></span>
+                <span class="demo-title">Aktivasi Akun</span>
+                <span class="demo-live"><span class="live-dot"></span>LIVE</span>
+              </div>
+
+              <div class="demo-body">
+                <div class="demo-step" data-step="0">
+                  <span class="step-ico"><i class="ph-fill ph-link-simple"></i></span>
+                  <div class="step-text">
+                    <strong>Tempel URL</strong>
+                    <small>Website atau repo GitHub</small>
+                  </div>
+                  <span class="step-state"></span>
+                </div>
+
+                <div class="demo-step" data-step="1">
+                  <span class="step-ico"><i class="ph-fill ph-magnifying-glass"></i></span>
+                  <div class="step-text">
+                    <strong>Scraping Otomatis</strong>
+                    <small>Struktur &amp; design dianalisis</small>
+                  </div>
+                  <span class="step-state"></span>
+                </div>
+
+                <div class="demo-step" data-step="2">
+                  <span class="step-ico"><i class="ph-fill ph-sparkle"></i></span>
+                  <div class="step-text">
+                    <strong>Prompt Siap Pakai</strong>
+                    <small>Lengkap dengan design system</small>
+                  </div>
+                  <span class="step-state"></span>
+                </div>
+              </div>
+
+              <div class="demo-progress">
+                <div class="demo-progress-bar"></div>
+              </div>
+              <div class="demo-status">Menyiapkan sesi<span class="demo-ellipsis"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span data-i18n="mq.1">Website to Prompt</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.2">Repo to Prompt</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.3">Design System</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.4">Hasil Instan</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.5">Support SSE Stream</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.1">Website to Prompt</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.2">Repo to Prompt</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.3">Design System</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.4">Hasil Instan</span><i class="ph-fill ph-asterisk"></i>
+        <span data-i18n="mq.5">Support SSE Stream</span><i class="ph-fill ph-asterisk"></i>
+      </div>
+    </div>
+
+    <!-- STATISTIK PENGUNJUNG -->
+    <section class="section stats-section" id="statistik">
+      <div class="container">
+        <div class="stats-hero reveal">
+          <div>
+            <h2 class="section-title" style="text-align: left;" data-i18n="stats.title">Angka Yang <span class="accent">Berbicara.</span></h2>
+            <p class="section-sub" style="text-align: left; margin-bottom: 0;" data-i18n="stats.sub">Hasil nyata yang mencerminkan pertumbuhan dan kepercayaan kreator.</p>
+          </div>
+          <a href="coba.html" class="btn btn-primary" data-i18n="stats.cta">Mulai Sekarang</a>
+        </div>
+        <div class="big-stats-grid">
+          <div class="big-stat reveal">
+            <i class="ph ph-eye"></i>
+            <strong class="count-up" data-target="0" id="bsVisits">0</strong>
+            <span data-i18n="stats.visits">Total Kunjungan</span>
+          </div>
+          <div class="big-stat reveal">
+            <i class="ph-fill ph-user-circle"></i>
+            <strong class="count-up" data-target="0" id="bsUnique">0</strong>
+            <span data-i18n="stats.unique">Pengunjung Unik</span>
+          </div>
+          <div class="big-stat reveal">
+            <i class="ph-fill ph-magnifying-glass"></i>
+            <strong class="count-up" data-target="0" id="bsReverses">0</strong>
+            <span data-i18n="stats.reverses">Reverse Dikerjakan</span>
+          </div>
+          <div class="big-stat reveal">
+            <i class="ph-fill ph-file-text"></i>
+            <strong class="count-up" data-target="0" id="bsPrd">0</strong>
+            <span data-i18n="stats.prd">PRD Dibuat</span>
+          </div>
+        </div>
+        <p class="live-line reveal"><span class="pulse-dot"></span> <strong id="bsLive">0</strong> <span data-i18n="stats.live">kreator sedang online sekarang</span></p>
+      </div>
+    </section>
+
+    <!-- KEUNGGULAN / BENTO -->
+    <section class="section" id="keunggulan">
+      <div class="container">
+        <h2 class="section-title reveal" data-i18n="feat.title">Kenapa harus <span class="accent">Noisy Verse?</span></h2>
+        <p class="section-sub reveal" data-i18n="feat.sub">Satu URL, prompt AI lengkap langsung di tangan.</p>
+
+        <div class="bento">
+          <article class="bento-cell cell-wide reveal">
+            <div class="cell-icon"><i class="ph-fill ph-globe"></i></div>
+            <h3 data-i18n="feat.1.t">Website Apapun Jadi Prompt</h3>
+            <p data-i18n="feat.1.p">Tempel URL website apa saja, struktur dan design-nya diubah jadi prompt AI terstruktur yang siap dipakai untuk rebuild project.</p>
+          </article>
+          <article class="bento-cell reveal">
+            <div class="cell-icon"><i class="ph-fill ph-github-logo"></i></div>
+            <h3 data-i18n="feat.2.t">Repo GitHub Juga Bisa</h3>
+            <p data-i18n="feat.2.p">Cukup format owner/repo atau link GitHub penuh, prompt-nya langsung jadi.</p>
+          </article>
+          <article class="bento-cell reveal">
+            <div class="cell-icon"><i class="ph-fill ph-palette"></i></div>
+            <h3 data-i18n="feat.3.t">Gratis Design System</h3>
+            <p data-i18n="feat.3.p">Hasil scraping menyertakan design system yang bisa dibuka langsung.</p>
+          </article>
+          <article class="bento-cell reveal">
+            <div class="cell-icon"><i class="ph-fill ph-lightning"></i></div>
+            <h3 data-i18n="feat.4.t">Hasil Instan</h3>
+            <p data-i18n="feat.4.p">Proses hanya beberapa detik per URL, streaming realtime.</p>
+          </article>
+          <article class="bento-cell reveal">
+            <div class="cell-icon"><i class="ph-fill ph-stack"></i></div>
+            <h3 data-i18n="feat.5.t">Mode Bulk</h3>
+            <p data-i18n="feat.5.p">Butuh banyak prompt sekaligus? Kirim satu permintaan, hasil banyak.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARA KERJA -->
+    <section class="section section-alt" id="cara-order">
+      <div class="container">
+        <h2 class="section-title reveal" data-i18n="how.title">Cara kerjanya <span class="accent">3 langkah.</span></h2>
+
+        <ol class="steps">
+          <li class="step reveal">
+            <span class="step-num">01</span>
+            <h3 data-i18n="how.1.t">Tempel URL</h3>
+            <p data-i18n="how.1.p">Kirim link website atau repo GitHub kamu via Telegram <a href="https://t.me/noisy02" target="_blank" rel="noopener">@noisy02</a>.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step-num">02</span>
+            <h3 data-i18n="how.2.t">Proses Scraping</h3>
+            <p data-i18n="how.2.p">Sistem menganalisis struktur, konten, dan design-nya secara otomatis.</p>
+          </li>
+          <li class="step reveal">
+            <span class="step-num">03</span>
+            <h3 data-i18n="how.3.t">Prompt Terkirim</h3>
+            <p data-i18n="how.3.p">Prompt AI lengkap plus design system langsung dikirim ke kamu.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- HARGA -->
+    <section class="section" id="harga">
+      <div class="container">
+        <h2 class="section-title reveal" data-i18n="price.title">Pilih paketmu.</h2>
+        <p class="section-sub reveal" data-i18n="price.sub">Sekali bayar, scraping sepuasnya.</p>
+
+        <div class="pricing" id="pricingGrid">
+          <article class="price-card reveal">
+            <h3>Gratis</h3>
+            <div class="price"><span class="price-value">Rp0</span></div>
+            <ul>
+              <li><i class="ph ph-check"></i> 1x reverse website / repo</li>
+              <li><i class="ph ph-check"></i> 1x generate PRD AI</li>
+              <li><i class="ph ph-check"></i> Lihat design system</li>
+            </ul>
+            <a href="coba.html" class="btn btn-ghost btn-block">Mulai Gratis</a>
+          </article>
+        </div>
+
+        <div class="pay-strip reveal" aria-label="Metode pembayaran yang didukung">
+          <span class="pay-strip-label" data-i18n="price.pay">Metode pembayaran didukung</span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/qris.svg" alt="QRIS" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/bca.svg" alt="BCA" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/bri.svg" alt="BRI" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/bni.svg" alt="BNI" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/mandiri.svg" alt="Mandiri" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/dana.svg" alt="DANA" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/ovo.svg" alt="OVO" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/gopay.svg" alt="GoPay" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/shopeepay.svg" alt="ShopeePay" loading="lazy" /></span>
+          <span class="pay-logo pay-logo-chip"><img src="assets/payments/seabank.svg" alt="SeaBank" loading="lazy" /></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TESTIMONI -->
+    <section class="section section-alt" id="testimoni">
+      <div class="container">
+        <h2 class="section-title reveal" data-i18n="testi.title">Kata mereka.</h2>
+        <div class="testimonials">
+          <blockquote class="testi reveal">
+            <p data-i18n="testi.1">"Tinggal tempel URL, prompt-nya langsung jadi. Bikin ulang website klien jadi jauh lebih cepat."</p>
+            <footer><span class="testi-avatar">R</span> <span data-i18n="testi.1.by">Rizky — Web Developer</span></footer>
+          </blockquote>
+          <blockquote class="testi reveal">
+            <p data-i18n="testi.2">"Fitur repo to prompt-nya akurat banget, struktur project kebaca rapi. Recommended."</p>
+            <footer><span class="testi-avatar">D</span> <span data-i18n="testi.2.by">Dinda — Freelance Dev</span></footer>
+          </blockquote>
+          <blockquote class="testi reveal">
+            <p data-i18n="testi.3">"Design system yang disertakan bikin hasil rebuild-nya mirip banget sama aslinya. Worth it."</p>
+            <footer><span class="testi-avatar">F</span> <span data-i18n="testi.3.by">Fajar — UI Designer</span></footer>
+          </blockquote>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section section-alt" id="faq">
+      <div class="container">
+        <h2 class="section-title reveal" data-i18n="faq.title">Pertanyaan <span class="accent">umum.</span></h2>
+        <p class="section-sub reveal" data-i18n="faq.sub">Hal-hal yang paling sering ditanyakan sebelum mulai.</p>
+        <div class="faq-list">
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q1">Apa itu Noisy Verse?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a1">Noisy Verse mengubah URL website atau repo GitHub apa pun menjadi prompt AI lengkap beserta design system-nya, siap dipakai untuk membangun ulang project.</p></div></div>
+          </details>
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q2">Apa beda Reverse website dan repo?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a2">Reverse website membaca tampilan & struktur halaman jadi prompt plus design system. Reverse repo membaca struktur kode project GitHub menjadi prompt yang rapi.</p></div></div>
+          </details>
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q3">Berapa lama proses reverse-nya?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a3">Umumnya hanya beberapa detik. Untuk website atau repo besar bisa sedikit lebih lama, tapi tetap real-time lewat streaming.</p></div></div>
+          </details>
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q4">Bagaimana cara bayar dan mengaktifkan paket?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a4">Pilih paket di halaman Harga, buat kode pesanan, bayar via QRIS/transfer, lalu konfirmasi ke bot Telegram. Paket aktif otomatis setelah kami ACC.</p></div></div>
+          </details>
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q5">Apa itu kuota GitVerse?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a5">Kuota GitVerse adalah jumlah reverse yang bisa kamu jalankan. Paket Premium punya kuota tetap yang terlihat di halaman Reverse, sedangkan paket Unlimited bebas tanpa batas.</p></div></div>
+          </details>
+          <details class="faq-item reveal">
+            <summary><span data-i18n="faq.q6">Bagaimana memakai kupon diskon?</span><i class="ph ph-plus faq-icon"></i></summary>
+            <div class="faq-answer"><div class="faq-answer-inner"><p data-i18n="faq.a6">Masukkan kode kupon di halaman pembayaran lalu klik Terapkan. Jika valid, harga paket langsung terpotong sebelum kamu buat pesanan.</p></div></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA FINAL -->
+    <section class="cta-final">
+      <div class="container">
+        <h2 class="reveal" data-i18n="cta.title">Siap reverse <span class="accent-glow">project pertamamu?</span></h2>
+        <p class="reveal" data-i18n="cta.sub">Kirim URL kamu sekarang, prompt jadi dalam hitungan detik.</p>
+        <div class="reveal cta-final-btns">
+          <a href="coba.html" class="btn btn-primary btn-lg">
+            <i class="ph ph-magic-wand"></i> <span data-i18n="cta.buy">Coba Gratis</span>
+          </a>
+          <a href="https://t.me/noisy02" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">
+            <i class="ph ph-telegram-logo"></i> <span data-i18n="cta.tg">Telegram</span>
+          </a>
+          <a href="https://github.com/cokguss" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">
+            <i class="ph ph-github-logo"></i> GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <a href="#" class="logo logo-footer">
+        <svg class="logo-svg" width="30" height="30" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgf" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgf)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Noisy<span>Verse</span>
+      </a>
+      <div class="footer-legal">
+        <a href="privacy.html" data-i18n="footer.privacy">Kebijakan Privasi</a>
+        <span aria-hidden="true">·</span>
+        <a href="terms.html" data-i18n="footer.terms">Syarat &amp; Ketentuan</a>
+      </div>
+      <p class="footer-copy">© 2026 Noisy Verse</p>
+    </div>
+  </footer>
+
+  <script src="js/lang.js"></script>
+  <script src="js/announcements.js"></script>
+  <script src="js/user-assistant.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

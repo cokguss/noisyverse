@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masuk — Noisy Verse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <main class="login-page">
+    <div class="login-card">
+      <a href="index.html" class="logo login-logo" aria-label="Noisy Verse">
+        <svg class="logo-svg" width="56" height="56" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgn" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgn)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+
+      <h1 class="login-title" id="formTitle">Masuk</h1>
+      <p class="login-sub" id="formSub">Masuk untuk melanjutkan ke Noisy Verse</p>
+
+      <div class="auth-tabs login-tabs">
+        <button class="auth-tab active" data-auth="login" type="button">Masuk</button>
+        <button class="auth-tab" data-auth="register" type="button">Daftar</button>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <input type="text" id="authUsername" class="try-input login-input" placeholder="Username" autocomplete="username" spellcheck="false" />
+        <input type="password" id="authPassword" class="try-input login-input" placeholder="Password (min. 6 karakter)" autocomplete="current-password" />
+        <button class="btn btn-primary btn-block btn-lg login-submit" id="authSubmit" type="submit">
+          <i class="ph ph-sign-in"></i> <span id="submitLabel">Masuk</span>
+        </button>
+      </form>
+
+      <p class="auth-error" id="authError" hidden></p>
+
+      <p class="login-switch" id="switchText">Belum punya akun? <a href="#" id="switchLink">Daftar gratis</a></p>
+
+      <div class="login-benefit">
+        <i class="ph-fill ph-gift"></i>
+        Akun baru dapat <strong>1x reverse gratis</strong> + <strong>1x PRD AI</strong>
+      </div>
+
+      <a href="index.html" class="login-back"><i class="ph ph-arrow-left"></i> Kembali ke beranda</a>
+    </div>
+  </main>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

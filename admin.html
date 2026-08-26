@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Noisy Verse</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="legal-nav">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <svg class="logo-svg" width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgn" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgn)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Admin<span>Panel</span>
+      </a>
+      <button class="btn-mini" id="logoutAdmin" type="button" hidden><i class="ph ph-sign-out"></i> Keluar</button>
+    </div>
+  </header>
+
+  <main class="legal-page admin-page">
+    <span class="legal-badge">Internal</span>
+    <h1 style="text-align: center;">Dashboard Kontrol</h1>
+    <p class="legal-updated" style="text-align: center; max-width: none;">Kelola user, pesanan, paket, notifikasi, dan pengaturan website.</p>
+
+    <div class="try-card admin-login" id="loginBox">
+      <div class="admin-login-icon"><i class="ph-fill ph-lock-key"></i></div>
+      <h3 class="admin-h admin-login-h"><i class="ph-fill ph-lock-simple"></i> Masuk Admin</h3>
+      <p class="small-sub admin-login-sub">Masukkan admin key untuk membuka panel kontrol.</p>
+      <input type="password" id="adminKey" class="try-input" placeholder="Admin Key" autocomplete="off" />
+      <button class="btn btn-primary btn-block" id="loginBtn" type="button">
+        <i class="ph ph-sign-in"></i> Buka Panel
+      </button>
+      <p class="auth-error" id="loginError" hidden></p>
+    </div>
+
+    <div id="panelBox" hidden>
+      <nav class="admin-tabs" id="adminTabs">
+        <button class="admin-tab active" data-tab="dashboard" type="button"><i class="ph-fill ph-chart-bar"></i> Dashboard</button>
+        <button class="admin-tab" data-tab="users" type="button"><i class="ph-fill ph-users-three"></i> Pengguna</button>
+        <button class="admin-tab" data-tab="orders" type="button"><i class="ph-fill ph-receipt"></i> Pesanan</button>
+        <button class="admin-tab" data-tab="packages" type="button"><i class="ph-fill ph-package"></i> Paket</button>
+        <button class="admin-tab" data-tab="coupons" type="button"><i class="ph-fill ph-ticket"></i> Kupon</button>
+        <button class="admin-tab" data-tab="payments" type="button"><i class="ph-fill ph-credit-card"></i> Pembayaran</button>
+        <button class="admin-tab" data-tab="announce" type="button"><i class="ph-fill ph-megaphone"></i> Notifikasi</button>
+        <button class="admin-tab" data-tab="broadcast" type="button"><i class="ph-fill ph-broadcast"></i> Broadcast</button>
+        <button class="admin-tab" data-tab="settings" type="button"><i class="ph-fill ph-gear-six"></i> Pengaturan</button>
+      </nav>
+
+      <!-- DASHBOARD -->
+      <section class="tab-panel" id="tab-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card"><i class="ph-fill ph-users-three"></i><strong id="stUsers">0</strong><span>Total User</span></div>
+          <div class="stat-card"><i class="ph-fill ph-crown-simple"></i><strong id="stPremium">0</strong><span>Premium Aktif</span></div>
+          <div class="stat-card"><i class="ph-fill ph-receipt"></i><strong id="stOrders">0</strong><span>Total Pesanan</span></div>
+          <div class="stat-card warn"><i class="ph-fill ph-hourglass"></i><strong id="stPending">0</strong><span>Nunggu Bayar</span></div>
+          <div class="stat-card success"><i class="ph-fill ph-money"></i><strong id="stRevenue">Rp0</strong><span>Pendapatan</span></div>
+          <div class="stat-card"><i class="ph-fill ph-magnifying-glass"></i><strong id="stReverses">0</strong><span>Total Reverse</span></div>
+          <div class="stat-card"><i class="ph-fill ph-file-text"></i><strong id="stPrd">0</strong><span>Total PRD</span></div>
+        </div>
+        <div class="admin-toolbar" style="margin-top:18px;">
+          <button class="btn-mini" id="refreshBtn" type="button"><i class="ph ph-arrows-clockwise"></i> Refresh Semua</button>
+          <div class="admin-actions">
+            <a class="btn-mini" href="/api/admin/export/users"><i class="ph ph-download-simple"></i> Export Users CSV</a>
+            <a class="btn-mini" href="/api/admin/export/orders"><i class="ph ph-download-simple"></i> Export Orders CSV</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- USERS -->
+      <section class="tab-panel" id="tab-users" hidden>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Paket</th>
+                <th>Berlaku s/d</th>
+                <th>Reverse</th>
+                <th>PRD</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+          <div class="admin-empty" id="usersEmpty" hidden>Belum ada pengguna.</div>
+        </div>
+      </section>
+
+      <!-- ORDERS -->
+      <section class="tab-panel" id="tab-orders" hidden>
+        <input type="text" id="orderSearch" class="try-input" placeholder="Cari kode / telegram / akun / status..." autocomplete="off" style="margin-bottom:14px;" />
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Kode</th>
+                <th>Telegram</th>
+                <th>Akun</th>
+                <th>Paket</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+          <div class="admin-empty" id="emptyState" hidden>Tidak ada pesanan yang cocok.</div>
+        </div>
+      </section>
+
+      <!-- PACKAGES -->
+      <section class="tab-panel" id="tab-packages" hidden>
+        <div class="try-card small" style="margin-bottom:16px;">
+          <h3 class="admin-h"><i class="ph-fill ph-plus-circle"></i> Tambah Paket Baru</h3>
+          <div class="pkg-form-grid">
+            <input type="text" id="npId" class="try-input" placeholder="id (misal: pro)" autocomplete="off" />
+            <input type="text" id="npName" class="try-input" placeholder="Nama paket" autocomplete="off" />
+            <input type="text" id="npPrice" class="try-input" placeholder="Harga (Rp40rb)" autocomplete="off" />
+            <input type="text" id="npPriceOld" class="try-input" placeholder="Harga lama (opsional)" autocomplete="off" />
+            <input type="number" id="npDays" class="try-input" placeholder="Durasi (hari)" min="1" />
+            <input type="number" id="npReverse" class="try-input" placeholder="Kuota reverse (∞ = kosongkan)" min="0" />
+            <input type="number" id="npPrd" class="try-input" placeholder="Kuota PRD" min="1" />
+            <input type="text" id="npTagline" class="try-input" placeholder="Tagline" autocomplete="off" />
+          </div>
+          <textarea id="npBenefits" class="try-input prd-textarea sm" placeholder="Benefit — satu per baris" style="margin-top:12px;"></textarea>
+          <label class="pkg-check"><input type="checkbox" id="npFeatured" /> Jadikan featured (Terlaris)</label>
+          <button class="btn btn-primary btn-block" id="addPkgBtn" type="button" style="margin-top:12px;"><i class="ph ph-plus"></i> Tambah Paket</button>
+        </div>
+        <div id="packagesList" class="pkg-list"></div>
+      </section>
+
+      <!-- COUPONS -->
+      <section class="tab-panel" id="tab-coupons" hidden>
+        <div class="try-card small" style="margin-bottom:16px;">
+          <h3 class="admin-h"><i class="ph-fill ph-ticket"></i> Tambah Kupon</h3>
+          <p class="small-sub" style="margin-top:6px;">Kupon memberi potongan harga pada paket yang dipilih. Kode otomatis huruf besar.</p>
+          <div class="pkg-form-grid" style="margin-top:12px;">
+            <input type="text" id="ncCode" class="try-input" placeholder="Kode (misal: HEMAT20)" autocomplete="off" />
+            <select id="ncType" class="try-input">
+              <option value="percent">Diskon Persen (%)</option>
+              <option value="fixed">Potongan Nominal (Rp)</option>
+            </select>
+            <input type="number" id="ncValue" class="try-input" placeholder="Nilai (20 = 20% / 20000)" min="1" />
+            <select id="ncPackage" class="try-input"><option value="">Semua paket</option></select>
+            <input type="number" id="ncMaxUses" class="try-input" placeholder="Batas pemakaian (0 = ∞)" min="0" />
+            <input type="datetime-local" id="ncExpiry" class="try-input" title="Berlaku sampai (opsional)" />
+          </div>
+          <button class="btn btn-primary btn-block" id="addCouponBtn" type="button" style="margin-top:12px;"><i class="ph ph-plus"></i> Tambah Kupon</button>
+          <p class="auth-error" id="ncMsg" hidden></p>
+        </div>
+        <div id="couponsList" class="pkg-list"></div>
+      </section>
+
+      <!-- PAYMENTS -->
+      <section class="tab-panel" id="tab-payments" hidden>
+        <div class="try-card small" style="margin-bottom:16px;">
+          <h3 class="admin-h"><i class="ph-fill ph-plus-circle"></i> Tambah Metode Pembayaran</h3>
+          <div class="pkg-form-grid">
+            <select id="pmType" class="try-input">
+              <option value="bank">Bank</option>
+              <option value="ewallet">E-Wallet</option>
+              <option value="qris">QRIS</option>
+            </select>
+            <input type="text" id="pmName" class="try-input" placeholder="Nama (BCA, DANA, Seabank...)" autocomplete="off" />
+            <input type="text" id="pmAccName" class="try-input" placeholder="Atas nama" autocomplete="off" />
+            <input type="text" id="pmAccNum" class="try-input" placeholder="No. rekening / HP" autocomplete="off" />
+          </div>
+          <label class="field-label" style="margin-top:12px;">Foto QRIS <small>(opsional — semua metode bisa punya QR)</small></label>
+          <div class="qr-upload-row">
+            <input type="file" id="pmQrFile" accept="image/*" class="try-input" />
+            <img id="pmQrPreview" class="qr-upload-preview" hidden alt="Preview QR" />
+          </div>
+          <button class="btn btn-primary" id="pmAddBtn" type="button" style="margin-top:12px;"><i class="ph ph-plus"></i> Tambah</button>
+          <p class="auth-error" id="pmMsg" hidden></p>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Metode</th>
+                <th>Tipe</th>
+                <th>Atas Nama</th>
+                <th>No. Rekening</th>
+                <th>Status</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="paymentsBody"></tbody>
+          </table>
+          <div class="admin-empty" id="pmEmpty" hidden>Belum ada metode pembayaran.</div>
+        </div>
+      </section>
+
+      <!-- ANNOUNCE -->
+      <section class="tab-panel" id="tab-announce" hidden>
+        <div class="try-card small" style="margin-bottom:16px;">
+          <h3 class="admin-h"><i class="ph-fill ph-megaphone"></i> Buat Notifikasi</h3>
+          <p class="small-sub" style="margin-top:6px;">Muncul sebagai banner di semua halaman website.</p>
+          <textarea id="anMsg" class="try-input prd-textarea sm" placeholder="Tulis pengumuman..." style="margin-top:12px;"></textarea>
+          <div class="pkg-form-grid" style="margin-top:12px;">
+            <select id="anType" class="try-input">
+              <option value="info">Info (ungu)</option>
+              <option value="success">Sukses (hijau)</option>
+              <option value="warning">Peringatan (oranye)</option>
+            </select>
+            <input type="datetime-local" id="anExpiry" class="try-input" title="Berlaku sampai (opsional)" />
+          </div>
+          <button class="btn btn-primary btn-block" id="anBtn" type="button" style="margin-top:12px;"><i class="ph ph-megaphone"></i> Terbitkan</button>
+          <p class="auth-error" id="anMsgResult" hidden></p>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Pesan</th><th>Tipe</th><th>Status</th><th>Kedaluwarsa</th><th>Aksi</th></tr></thead>
+            <tbody id="annBody"></tbody>
+          </table>
+          <div class="admin-empty" id="annEmpty" hidden>Belum ada notifikasi yang diterbitkan.</div>
+        </div>
+      </section>
+
+      <!-- BROADCAST -->
+      <section class="tab-panel" id="tab-broadcast" hidden>
+        <div class="try-card small">
+          <h3 class="admin-h"><i class="ph-fill ph-broadcast"></i> Broadcast Bot Telegram</h3>
+          <p class="small-sub" style="margin-top:6px;">Kirim pesan ke semua user yang pernah chat bot (<span id="bcCount">0</span> chat dikenal).</p>
+          <textarea id="bcMsg" class="try-input prd-textarea" placeholder="Tulis pesan broadcast..." style="margin-top:12px; min-height: 190px;"></textarea>
+          <button class="btn btn-primary btn-block" id="bcBtn" type="button" style="margin-top:14px;"><i class="ph ph-paper-plane-tilt"></i> Kirim Broadcast</button>
+          <p class="auth-error" id="bcResult" hidden></p>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="tab-panel" id="tab-settings" hidden>
+        <div class="try-card small">
+          <h3 class="admin-h"><i class="ph-fill ph-gear-six"></i> Pengaturan Website</h3>
+          <div class="setting-row">
+            <div>
+              <strong>Maintenance Mode</strong>
+              <p>Saat aktif, pengunjung tidak bisa mengakses website (hanya admin).</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="maintenanceToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="legal-footer">Noisy Verse Admin · Internal use only</footer>
+
+  <button class="ai-fab" id="aiFab" type="button" hidden><i class="ph-fill ph-sparkle"></i></button>
+  <div class="ai-chat" id="aiChat" hidden>
+    <div class="ai-chat-head">
+      <span><i class="ph-fill ph-sparkle"></i> AI Assistant</span>
+      <button class="ai-close" id="aiClose" type="button">&times;</button>
+    </div>
+    <div class="ai-msgs" id="aiMsgs">
+      <div class="ai-msg bot">Halo admin! 👋 Tanya apa saja soal mengelola user, meng-ACC pesanan, paket, atau pengaturan website.</div>
+      <div class="ai-chips">
+        <button type="button" data-q="Berapa pesanan yang menunggu pembayaran?">⏳ Pesanan pending</button>
+        <button type="button" data-q="Bagaimana cara aktivasi paket user?">✅ Aktivasi paket user</button>
+        <button type="button" data-q="Berapa pendapatan saat ini?">💰 Pendapatan</button>
+      </div>
+    </div>
+    <form id="aiForm" class="ai-chat-input" autocomplete="off">
+      <div class="ai-input-wrap">
+        <i class="ph-fill ph-sparkle ai-input-icon"></i>
+        <input type="text" id="aiInput" placeholder="Ada yang bisa dibantu, admin?" />
+        <button class="ai-send" type="submit" aria-label="Kirim"><i class="ph-fill ph-paper-plane-tilt"></i></button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/payment-brands.js"></script>
+  <script src="js/nv-select.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      let adminKey = sessionStorage.getItem("nv_admin") || "";
+      let allOrders = [];
+
+      const statusLabels = {
+        menunggu_pembayaran: "Menunggu Bayar",
+        diproses: "Diproses",
+        selesai: "Selesai",
+        dibatalkan: "Dibatalkan"
+      };
+      const packageLabels = { free: "Gratis", coba: "Gratis (lama)", gratis: "Gratis", hemat: "Premium (lama)", premium: "Premium", unlimited: "Unlimited" };
+
+      function headers() {
+        return { "Content-Type": "application/json", "X-Admin-Key": adminKey };
+      }
+      function escapeHtml(str) {
+        const d = document.createElement("div");
+        d.textContent = String(str == null ? "" : str);
+        return d.innerHTML;
+      }
+
+      /* ---------- TABS ---------- */
+      document.querySelectorAll(".admin-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".admin-tab").forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          document.querySelectorAll(".tab-panel").forEach((p) => (p.hidden = true));
+          $("tab-" + tab.dataset.tab).hidden = false;
+        });
+      });
+
+      /* ---------- STATS ---------- */
+      async function loadStats() {
+        const res = await fetch("/api/admin/stats", { headers: headers() });
+        const data = await res.json();
+        if (!data.ok) return;
+        $("stUsers").textContent = data.stats.users;
+        $("stPremium").textContent = data.stats.premiumActive;
+        $("stOrders").textContent = data.stats.orders;
+        $("stPending").textContent = data.stats.ordersPending;
+        $("stRevenue").textContent = "Rp" + data.stats.revenue.toLocaleString("id-ID");
+        $("stReverses").textContent = data.stats.reverses;
+        $("stPrd").textContent = data.stats.prd;
+      }
+
+      /* ---------- USERS ---------- */
+      async function loadUsers() {
+        const res = await fetch("/api/admin/users", { headers: headers() });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Gagal memuat.");
+        renderUsers(data.users);
+      }
+
+      function renderUsers(users) {
+        const body = $("usersBody");
+        body.innerHTML = "";
+        $("usersEmpty").hidden = users.length > 0;
+        for (const u of users) {
+          const isMain = u.username === "noisy02";
+          const tr = document.createElement("tr");
+          const paketText = u.dev
+            ? "<span class='status-badge st-diproses'>Developer ∞</span>"
+            : (u.packageActive && u.package
+              ? "<span class='status-badge st-selesai'>" + (packageLabels[u.package.type] || u.package.type) + "</span>"
+              : "<span class='status-badge st-menunggu_pembayaran'>Gratis</span>");
+          const expiry = u.packageActive && u.package
+            ? new Date(u.package.expiresAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
+            : "-";
+          tr.innerHTML =
+            "<td><div class='admin-actions'><strong>" + escapeHtml(u.username) + "</strong>" +
+              (isMain ? "<span class='status-badge st-diproses'>UTAMA</span>" : (u.dev ? "<span class='status-badge st-diproses'>DEV</span>" : "")) +
+            "</div></td>" +
+            "<td>" + paketText + "</td>" +
+            "<td class='dim'>" + expiry + "</td>" +
+            "<td class='dim'>" + (u.dev ? "∞" : (u.reverseUsed || 0) + "/" + (u.reverseQuota === undefined ? 1 : u.reverseQuota)) + "</td>" +
+            "<td class='dim'>" + (u.prdUsed || 0) + "/" + (u.dev ? "∞" : u.prdQuota) + "</td>" +
+            "<td>" + (isMain
+              ? "<span class='dim'>Terkunci</span>"
+              : "<div class='admin-actions user-actions'>" +
+                ((u.packageActive || u.dev)
+                  ? "<span class='status-badge st-selesai acc-done'><i class='ph-fill ph-seal-check'></i> Ter-ACC</span>"
+                  : "<select class='admin-select pkg-select' data-user='" + escapeHtml(u.username) + "'>" +
+                      ["premium", "unlimited", "gratis"].map((p) => "<option value='" + p + "'>" + (packageLabels[p] || p) + "</option>").join("") +
+                    "</select>" +
+                    "<input type='number' class='admin-select days-input' data-user='" + escapeHtml(u.username) + "' placeholder='Hari' min='1' max='365' style='width:70px' />" +
+                    "<button class='btn-mini set-pkg' data-user='" + escapeHtml(u.username) + "'><i class='ph ph-check'></i> Acc</button>") +
+                (u.dev ? "" : "<button class='btn-mini make-dev' data-user='" + escapeHtml(u.username) + "'><i class='ph ph-shield-star'></i> Dev</button>") +
+                "<button class='btn-mini danger del-user' data-user='" + escapeHtml(u.username) + "'><i class='ph ph-trash'></i></button>" +
+              "</div>") + "</td>";
+          body.appendChild(tr);
+        }
+
+        body.querySelectorAll(".set-pkg").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const uname = btn.dataset.user;
+            const select = body.querySelector(".pkg-select[data-user='" + uname + "']");
+            const days = body.querySelector(".days-input[data-user='" + uname + "']").value;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/grant-package", {
+                method: "POST",
+                headers: headers(),
+                body: JSON.stringify({ username: uname, packageType: select.value, durationDays: days || undefined })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              btn.innerHTML = "<i class='ph ph-check'></i> Ter-ACC";
+              setTimeout(() => loadUsers().catch(() => {}), 800);
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        body.querySelectorAll(".make-dev").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Jadikan " + btn.dataset.user + " sebagai developer (unlimited)?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/grant-dev", {
+                method: "POST",
+                headers: headers(),
+                body: JSON.stringify({ username: btn.dataset.user })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadUsers();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        body.querySelectorAll(".del-user").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus akun '" + btn.dataset.user + "' secara permanen?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/users/" + encodeURIComponent(btn.dataset.user), {
+                method: "DELETE",
+                headers: headers()
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadUsers();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+        if (window.nvSelectEnhance) window.nvSelectEnhance();
+      }
+
+      /* ---------- ORDERS ---------- */
+      async function loadOrders() {
+        const res = await fetch("/api/admin/orders", { headers: headers() });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Gagal memuat.");
+        allOrders = data.orders;
+        renderOrders(allOrders);
+      }
+
+      function renderOrders(orders) {
+        const body = $("ordersBody");
+        body.innerHTML = "";
+        $("emptyState").hidden = orders.length > 0;
+        for (const o of orders) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td class='mono'>" + o.code + "</td>" +
+            "<td>" + escapeHtml(o.telegram) + "</td>" +
+            "<td>" + escapeHtml(o.account || "-") + "</td>" +
+            "<td>" + escapeHtml(o.target) + "</td>" +
+            "<td><span class='status-badge st-" + o.status + "'>" + (statusLabels[o.status] || o.status) + "</span></td>" +
+            "<td><div class='admin-actions'>" +
+              (o.status === "selesai"
+                ? "<span class='status-badge st-selesai acc-done'><i class='ph-fill ph-seal-check'></i> Selesai</span>"
+                : "<select class='admin-select' data-code='" + o.code + "'>" +
+                    Object.keys(statusLabels).map((s) => "<option value='" + s + "'" + (s === o.status ? " selected" : "") + ">" + statusLabels[s] + "</option>").join("") +
+                  "</select>" +
+                  "<button class='btn-mini save-status' data-code='" + o.code + "'><i class='ph ph-check'></i></button>") +
+              "<button class='btn-mini danger del-order' data-code='" + o.code + "'><i class='ph ph-trash'></i></button>" +
+            "</div></td>";
+          body.appendChild(tr);
+        }
+
+        body.querySelectorAll(".save-status").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const code = btn.dataset.code;
+            const select = body.querySelector(".admin-select[data-code='" + code + "']");
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/orders/" + code, {
+                method: "PATCH",
+                headers: headers(),
+                body: JSON.stringify({ status: select.value })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error);
+              btn.innerHTML = "<i class='ph ph-check'></i>";
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        body.querySelectorAll(".del-order").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus pesanan " + btn.dataset.code + "?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/orders/" + btn.dataset.code, { method: "DELETE", headers: headers() });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              allOrders = allOrders.filter((o) => o.code !== btn.dataset.code);
+              renderOrders(allOrders);
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+        if (window.nvSelectEnhance) window.nvSelectEnhance();
+      }
+
+      $("orderSearch").addEventListener("input", () => {
+        const q = $("orderSearch").value.trim().toLowerCase();
+        if (!q) return renderOrders(allOrders);
+        renderOrders(allOrders.filter((o) =>
+          [o.code, o.telegram, o.account, o.target, o.status].some((v) => String(v || "").toLowerCase().includes(q))
+        ));
+      });
+
+      /* ---------- PACKAGES ---------- */
+      async function loadPackagesAdmin() {
+        const res = await fetch("/api/admin/packages-list", { headers: headers() }).catch(() => null);
+        let list;
+        if (res && res.ok) {
+          const data = await res.json();
+          list = data.packages || [];
+        } else {
+          const pub = await fetch("/api/packages");
+          const data = await pub.json();
+          list = data.packages || [];
+        }
+        renderPackages(list);
+      }
+
+      function renderPackages(list) {
+        const wrap = $("packagesList");
+        wrap.innerHTML = "";
+        for (const p of list) {
+          const card = document.createElement("div");
+          card.className = "try-card small pkg-edit";
+          card.innerHTML =
+            "<div class='admin-toolbar' style='margin-bottom:12px;'>" +
+              "<h3 class='admin-h'><i class='ph-fill ph-tag'></i> " + escapeHtml(p.name) + " <span class='mono dim'>(" + p.id + ")</span></h3>" +
+              "<div class='admin-actions'>" +
+                "<button class='btn-mini save-pkg' data-id='" + p.id + "'><i class='ph ph-check'></i> Simpan</button>" +
+                (p.id === "gratis" ? "" : "<button class='btn-mini danger del-pkg' data-id='" + p.id + "'><i class='ph ph-trash'></i></button>") +
+              "</div>" +
+            "</div>" +
+            "<div class='pkg-form-grid'>" +
+              "<label>Nama<input class='try-input p-name' value='" + escapeHtml(p.name) + "' /></label>" +
+              "<label>Tagline<input class='try-input p-tagline' value='" + escapeHtml(p.tagline || "") + "' /></label>" +
+              "<label>Harga lama<input class='try-input p-priceOld' value='" + escapeHtml(p.priceOld || "") + "' /></label>" +
+              "<label>Harga<input class='try-input p-price' value='" + escapeHtml(p.price) + "' /></label>" +
+              "<label>Durasi (hari)<input type='number' class='try-input p-days' value='" + (p.durationDays || 30) + "' /></label>" +
+              "<label>Kuota reverse (∞ = null)<input class='try-input p-reverse' value='" + (p.reverseQuota === null ? "null" : p.reverseQuota) + "' /></label>" +
+              "<label>Kuota PRD<input type='number' class='try-input p-prd' value='" + (p.prdQuota || 1) + "' /></label>" +
+              "<label class='pkg-check'><input type='checkbox' class='p-featured'" + (p.featured ? " checked" : "") + " /> Featured</label>" +
+              "<label class='pkg-check'><input type='checkbox' class='p-active'" + (p.active !== false ? " checked" : "") + " /> Aktif</label>" +
+            "</div>" +
+            "<label class='field-label'>Benefit (satu per baris)</label>" +
+            "<textarea class='try-input prd-textarea sm p-benefits'>" + escapeHtml((p.benefits || []).join("\\n")) + "</textarea>";
+          wrap.appendChild(card);
+        }
+
+        wrap.querySelectorAll(".save-pkg").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = btn.dataset.id;
+            const card = btn.closest(".pkg-edit");
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/packages/" + encodeURIComponent(id), {
+                method: "PUT",
+                headers: headers(),
+                body: JSON.stringify({
+                  name: card.querySelector(".p-name").value,
+                  tagline: card.querySelector(".p-tagline").value,
+                  priceOld: card.querySelector(".p-priceOld").value || null,
+                  price: card.querySelector(".p-price").value,
+                  durationDays: card.querySelector(".p-days").value,
+                  reverseQuota: card.querySelector(".p-reverse").value.trim() === "null" ? null : card.querySelector(".p-reverse").value,
+                  prdQuota: card.querySelector(".p-prd").value,
+                  benefits: card.querySelector(".p-benefits").value.split("\\n").map((s) => s.trim()).filter(Boolean),
+                  featured: card.querySelector(".p-featured").checked,
+                  active: card.querySelector(".p-active").checked
+                })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              btn.innerHTML = "<i class='ph ph-check'></i> Tersimpan";
+              setTimeout(() => { btn.innerHTML = "<i class='ph ph-check'></i> Simpan"; btn.disabled = false; }, 1400);
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        wrap.querySelectorAll(".del-pkg").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus paket " + btn.dataset.id + "?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/packages/" + encodeURIComponent(btn.dataset.id), { method: "DELETE", headers: headers() });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadPackagesAdmin();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      $("addPkgBtn").addEventListener("click", async () => {
+        const id = $("npId").value.trim();
+        if (!id) return alert("Isi id paket dulu.");
+        try {
+          const res = await fetch("/api/admin/packages", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({
+              id,
+              name: $("npName").value.trim() || id,
+              tagline: $("npTagline").value.trim(),
+              price: $("npPrice").value.trim() || "Rp0",
+              priceOld: $("npPriceOld").value.trim() || null,
+              durationDays: $("npDays").value,
+              reverseQuota: $("npReverse").value === "" ? null : $("npReverse").value,
+              prdQuota: $("npPrd").value,
+              benefits: $("npBenefits").value.split("\\n").map((s) => s.trim()).filter(Boolean),
+              featured: $("npFeatured").checked,
+              active: true,
+              purchasable: true
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          ["npId","npName","npPrice","npPriceOld","npDays","npReverse","npPrd","npTagline","npBenefits"].forEach((x) => { $(x).value = ""; });
+          $("npFeatured").checked = false;
+          await loadPackagesAdmin();
+        } catch (err) {
+          alert("Gagal: " + err.message);
+        }
+      });
+
+      /* ---------- COUPONS ---------- */
+      let couponPkgsLoaded = false;
+
+      async function loadCouponPackages() {
+        if (couponPkgsLoaded) return;
+        const sel = $("ncPackage");
+        try {
+          const res = await fetch("/api/packages");
+          const data = await res.json();
+          const pkgs = (data.packages || []).filter((p) => p.price !== "Rp0" && p.purchasable !== false);
+          sel.innerHTML = "<option value=''>Semua paket</option>" +
+            pkgs.map((p) => "<option value='" + escapeHtml(p.id) + "'>" + escapeHtml(p.name) + "</option>").join("");
+          couponPkgsLoaded = true;
+        } catch {}
+      }
+
+      async function loadCoupons() {
+        await loadCouponPackages();
+        const res = await fetch("/api/admin/coupons", { headers: headers() }).catch(() => null);
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        renderCoupons(data.coupons || []);
+      }
+
+      function renderCoupons(list) {
+        const wrap = $("couponsList");
+        wrap.innerHTML = "";
+        if (!list.length) {
+          wrap.innerHTML = "<p class='dim' style='text-align:center;padding:20px;'>Belum ada kupon.</p>";
+          return;
+        }
+        const pkgOpts = $("ncPackage").innerHTML;
+        for (const c of list) {
+          const expired = c.expiresAt && new Date(c.expiresAt) <= new Date();
+          const valLabel = c.type === "percent" ? c.value + "%" : "Rp" + Number(c.value || 0).toLocaleString("id-ID");
+          const usedLabel = (c.usedCount || 0) + " / " + (c.maxUses && c.maxUses > 0 ? c.maxUses : "∞");
+          const expLocal = c.expiresAt ? new Date(new Date(c.expiresAt).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+          const status = c.active === false || expired
+            ? "<span class='status-badge st-dibatalkan'>" + (expired ? "Kedaluwarsa" : "Nonaktif") + "</span>"
+            : "<span class='status-badge st-selesai'>Aktif</span>";
+          const card = document.createElement("div");
+          card.className = "try-card small pkg-edit";
+          card.innerHTML =
+            "<div class='admin-toolbar' style='margin-bottom:12px;'>" +
+              "<h3 class='admin-h'><i class='ph-fill ph-ticket'></i> <span class='mono'>" + escapeHtml(c.code) + "</span> " + status +
+                " <span class='dim'>· dipakai " + usedLabel + "</span></h3>" +
+              "<div class='admin-actions'>" +
+                "<button class='btn-mini save-coupon' data-code='" + escapeHtml(c.code) + "'><i class='ph ph-check'></i> Simpan</button>" +
+                "<button class='btn-mini danger del-coupon' data-code='" + escapeHtml(c.code) + "'><i class='ph ph-trash'></i></button>" +
+              "</div>" +
+            "</div>" +
+            "<div class='pkg-form-grid'>" +
+              "<label>Tipe<select class='try-input c-type'><option value='percent'" + (c.type === "percent" ? " selected" : "") + ">Persen (%)</option><option value='fixed'" + (c.type === "fixed" ? " selected" : "") + ">Nominal (Rp)</option></select></label>" +
+              "<label>Nilai<input class='try-input c-value' type='number' value='" + escapeHtml(valLabel.replace(/[^0-9]/g, "") || c.value) + "' /></label>" +
+              "<label>Paket<select class='try-input c-package'>" + pkgOpts + "</select></label>" +
+              "<label>Batas pakai (0 = ∞)<input class='try-input c-maxuses' type='number' min='0' value='" + (c.maxUses || 0) + "' /></label>" +
+              "<label>Berlaku s/d<input class='try-input c-expiry' type='datetime-local' value='" + expLocal + "' /></label>" +
+              "<label class='pkg-check'><input type='checkbox' class='c-active'" + (c.active !== false ? " checked" : "") + " /> Aktif</label>" +
+            "</div>";
+          wrap.appendChild(card);
+          card.querySelector(".c-package").value = c.packageId || "";
+        }
+
+        wrap.querySelectorAll(".save-coupon").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const code = btn.dataset.code;
+            const card = btn.closest(".pkg-edit");
+            btn.disabled = true;
+            try {
+              const exp = card.querySelector(".c-expiry").value;
+              const res = await fetch("/api/admin/coupons/" + encodeURIComponent(code), {
+                method: "PUT",
+                headers: headers(),
+                body: JSON.stringify({
+                  type: card.querySelector(".c-type").value,
+                  value: card.querySelector(".c-value").value,
+                  packageId: card.querySelector(".c-package").value,
+                  maxUses: card.querySelector(".c-maxuses").value,
+                  expiresAt: exp ? new Date(exp).toISOString() : null,
+                  active: card.querySelector(".c-active").checked
+                })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              btn.innerHTML = "<i class='ph ph-check'></i> Tersimpan";
+              setTimeout(() => { btn.innerHTML = "<i class='ph ph-check'></i> Simpan"; btn.disabled = false; }, 1400);
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        wrap.querySelectorAll(".del-coupon").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus kupon " + btn.dataset.code + "?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/coupons/" + encodeURIComponent(btn.dataset.code), { method: "DELETE", headers: headers() });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadCoupons();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      $("addCouponBtn").addEventListener("click", async () => {
+        const msg = $("ncMsg");
+        msg.hidden = true;
+        const code = $("ncCode").value.trim().toUpperCase();
+        const value = $("ncValue").value.trim();
+        if (!code || !value) { msg.hidden = false; msg.textContent = "Isi kode & nilai kupon dulu."; return; }
+        const exp = $("ncExpiry").value;
+        try {
+          const res = await fetch("/api/admin/coupons", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({
+              code,
+              type: $("ncType").value,
+              value,
+              packageId: $("ncPackage").value,
+              maxUses: $("ncMaxUses").value || 0,
+              expiresAt: exp ? new Date(exp).toISOString() : null
+            })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          ["ncCode","ncValue","ncMaxUses","ncExpiry"].forEach((x) => { $(x).value = ""; });
+          await loadCoupons();
+        } catch (err) {
+          msg.hidden = false;
+          msg.textContent = err.message;
+        }
+      });
+
+      /* ---------- ANNOUNCEMENTS ---------- */
+      let editingAnnId = null;
+
+      async function loadAnnouncements() {
+        const res = await fetch("/api/admin/announcements", { headers: headers() });
+        const data = await res.json();
+        if (!res.ok || !data.ok) return;
+        const body = $("annBody");
+        body.innerHTML = "";
+        $("annEmpty").hidden = data.announcements.length > 0;
+        const now = Date.now();
+        for (const a of data.announcements) {
+          const expired = a.expiresAt && new Date(a.expiresAt) <= now;
+          const status = a.active === false || expired
+            ? "<span class='status-badge st-dibatalkan'>" + (expired ? "Kedaluwarsa" : "Nonaktif") + "</span>"
+            : "<span class='status-badge st-selesai'>Aktif</span>";
+          const expiry = a.expiresAt ? new Date(a.expiresAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Selamanya";
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td style='max-width:340px'>" + escapeHtml(a.message) + "</td>" +
+            "<td><span class='status-badge st-diproses'>" + a.type + "</span></td>" +
+            "<td>" + status + "</td>" +
+            "<td class='dim'>" + expiry + "</td>" +
+            "<td><div class='admin-actions'>" +
+              "<button class='btn-mini edit-ann' data-id='" + a.id + "'><i class='ph ph-pencil-simple'></i> Edit</button>" +
+              "<button class='btn-mini danger del-ann' data-id='" + a.id + "'><i class='ph ph-trash'></i></button>" +
+            "</div></td>";
+          body.appendChild(tr);
+        }
+
+        body.querySelectorAll(".edit-ann").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const item = data.announcements.find((x) => x.id === btn.dataset.id);
+            if (!item) return;
+            editingAnnId = item.id;
+            $("anMsg").value = item.message;
+            $("anType").value = item.type;
+            $("anExpiry").value = item.expiresAt
+              ? new Date(item.expiresAt).toISOString().slice(0, 16)
+              : "";
+            $("anBtn").innerHTML = "<i class='ph ph-check'></i> Update Notifikasi";
+            $("anMsg").focus();
+            $("anMsg").scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+        });
+
+        body.querySelectorAll(".del-ann").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus notifikasi ini?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/announcements/" + btn.dataset.id, { method: "DELETE", headers: headers() });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              if (editingAnnId === btn.dataset.id) resetAnnForm();
+              await loadAnnouncements();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      function resetAnnForm() {
+        editingAnnId = null;
+        $("anMsg").value = "";
+        $("anType").value = "info";
+        $("anExpiry").value = "";
+        $("anBtn").innerHTML = "<i class='ph ph-megaphone'></i> Terbitkan";
+      }
+
+      $("anBtn").addEventListener("click", async () => {
+        const msg = $("anMsgResult");
+        msg.hidden = true;
+        $("anBtn").disabled = true;
+        try {
+          const payload = {
+            message: $("anMsg").value,
+            type: $("anType").value,
+            expiresAt: $("anExpiry").value ? new Date($("anExpiry").value).toISOString() : null
+          };
+          const url = editingAnnId ? "/api/admin/announcements/" + editingAnnId : "/api/admin/announcements";
+          const method = editingAnnId ? "PUT" : "POST";
+          const res = await fetch(url, { method, headers: headers(), body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          msg.textContent = editingAnnId ? "✅ Notifikasi diperbarui!" : "✅ Notifikasi diterbitkan!";
+          msg.style.color = "#6ee7b7";
+          msg.hidden = false;
+          resetAnnForm();
+          await loadAnnouncements();
+        } catch (err) {
+          msg.textContent = err.message;
+          msg.style.color = "#fca5a5";
+          msg.hidden = false;
+        } finally {
+          $("anBtn").disabled = false;
+        }
+      });
+
+      /* ---------- BROADCAST ---------- */
+      async function loadBroadcastCount() {
+        try {
+          const res = await fetch("/api/admin/broadcast-count", { headers: headers() });
+          const data = await res.json();
+          if (data.ok) $("bcCount").textContent = data.count;
+        } catch {}
+      }
+
+      $("bcBtn").addEventListener("click", async () => {
+        const msg = $("bcResult");
+        msg.hidden = true;
+        $("bcBtn").disabled = true;
+        try {
+          const res = await fetch("/api/admin/broadcast", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ message: $("bcMsg").value })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          msg.textContent = "✅ Terkirim ke " + data.sent + " chat" + (data.failed ? " (" + data.failed + " gagal)" : "");
+          msg.style.color = "#6ee7b7";
+          $("bcMsg").value = "";
+        } catch (err) {
+          msg.textContent = err.message;
+          msg.style.color = "#fca5a5";
+        } finally {
+          msg.hidden = false;
+          $("bcBtn").disabled = false;
+        }
+      });
+
+      /* ---------- SETTINGS ---------- */
+      async function loadSettings() {
+        try {
+          const res = await fetch("/api/config");
+          const data = await res.json();
+          if (data.ok) $("maintenanceToggle").checked = !!data.maintenance;
+        } catch {}
+      }
+
+      $("maintenanceToggle").addEventListener("change", async (e) => {
+        const enabled = e.target.checked;
+        try {
+          const res = await fetch("/api/admin/maintenance", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ enabled })
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "Gagal.");
+        } catch (err) {
+          alert("Gagal: " + err.message);
+          e.target.checked = !enabled;
+        }
+      });
+
+      /* ---------- PAYMENTS ---------- */
+      const typeLabels = { bank: "Bank", ewallet: "E-Wallet", qris: "QRIS" };
+      let pendingQrData = null;
+
+      $("pmQrFile").addEventListener("change", () => {
+        const file = $("pmQrFile").files[0];
+        const preview = $("pmQrPreview");
+        pendingQrData = null;
+        if (!file) { preview.hidden = true; return; }
+        if (!/^image\//.test(file.type)) {
+          alert("File harus berupa gambar (PNG/JPG).");
+          $("pmQrFile").value = "";
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          alert("Ukuran foto maksimal 10MB.");
+          $("pmQrFile").value = "";
+          return;
+        }
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = () => { img.src = reader.result; };
+        img.onload = () => {
+          // Resize sisi terpanjang maksimal 640px supaya base64-nya kecil
+          const MAX = 640;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (!w || !h) {
+            alert("Gagal membaca gambar.");
+            $("pmQrFile").value = "";
+            preview.hidden = true;
+            return;
+          }
+          if (w > MAX || h > MAX) {
+            const ratio = Math.min(MAX / w, MAX / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          // PNG dulu (QR tetap tajam), fallback JPEG kalau masih besar
+          let out = canvas.toDataURL("image/png");
+          if (out.length > 900 * 1024) out = canvas.toDataURL("image/jpeg", 0.85);
+          if (out.length > 1200 * 1024) {
+            alert("Foto terlalu besar meski sudah dikompres. Coba gunakan gambar lain.");
+            $("pmQrFile").value = "";
+            preview.hidden = true;
+            return;
+          }
+          pendingQrData = out;
+          preview.src = out;
+          preview.hidden = false;
+        };
+        img.onerror = () => {
+          alert("Gagal membaca gambar.");
+          $("pmQrFile").value = "";
+          preview.hidden = true;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      function resetPmForm() {
+        editingPmId = null;
+        pendingQrData = null;
+        $("pmType").disabled = false;
+        $("pmType").dispatchEvent(new Event("change", { bubbles: true }));
+        $("pmName").value = "";
+        $("pmAccName").value = "";
+        $("pmAccNum").value = "";
+        $("pmQrFile").value = "";
+        $("pmQrPreview").hidden = true;
+        $("pmAddBtn").innerHTML = "<i class='ph ph-plus'></i> Tambah";
+      }
+
+      async function loadPayments() {
+        const res = await fetch("/api/admin/payments", { headers: headers() });
+        const data = await res.json();
+        if (!res.ok || !data.ok) return;
+        const body = $("paymentsBody");
+        body.innerHTML = "";
+        $("pmEmpty").hidden = data.payments.length > 0;
+        for (const p of data.payments) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td><div class='admin-actions pm-name-cell'>" +
+              (p.imageUrl
+                ? "<img src='" + p.imageUrl + "' class='pm-thumb' alt='' />"
+                : (window.PaymentBrands ? window.PaymentBrands.logoHtml(p.name, "sm") : "")) +
+              "<strong>" + escapeHtml(p.name) + "</strong>" +
+            "</div></td>" +
+            "<td><span class='status-badge st-diproses'>" + (typeLabels[p.type] || p.type) + "</span></td>" +
+            "<td>" + escapeHtml(p.accountName) + "</td>" +
+            "<td class='mono'>" + (p.accountNumber ? escapeHtml(p.accountNumber) : "-") + "</td>" +
+            "<td><button class='btn-mini toggle-pm' data-id='" + p.id + "' data-active='" + (p.active !== false) + "'>" +
+              (p.active !== false ? "<i class='ph ph-eye'></i> Aktif" : "<i class='ph ph-eye-slash'></i> Nonaktif") +
+            "</button></td>" +
+            "<td><div class='admin-actions'>" +
+              "<button class='btn-mini edit-pm' data-id='" + p.id + "'><i class='ph ph-pencil-simple'></i></button>" +
+              "<button class='btn-mini danger del-pm' data-id='" + p.id + "'><i class='ph ph-trash'></i></button>" +
+            "</div></td>";
+          body.appendChild(tr);
+        }
+
+        body.querySelectorAll(".edit-pm").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const item = data.payments.find((x) => x.id === btn.dataset.id);
+            if (!item) return;
+            editingPmId = item.id;
+            pendingQrData = item.imageUrl || null;
+            $("pmType").value = item.type;
+            $("pmType").disabled = true;
+            $("pmType").dispatchEvent(new Event("change", { bubbles: true }));
+            $("pmName").value = item.name;
+            $("pmAccName").value = item.accountName;
+            $("pmAccNum").value = item.accountNumber || "";
+            const preview = $("pmQrPreview");
+            if (item.imageUrl) { preview.src = item.imageUrl; preview.hidden = false; }
+            else preview.hidden = true;
+            $("pmAddBtn").innerHTML = "<i class='ph ph-check'></i> Update";
+            $("pmName").focus();
+            $("tab-payments").scrollIntoView({ behavior: "smooth" });
+          });
+        });
+
+        body.querySelectorAll(".del-pm").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Hapus metode " + btn.dataset.id + "?")) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/payments/" + btn.dataset.id, { method: "DELETE", headers: headers() });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadPayments();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+
+        body.querySelectorAll(".toggle-pm").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try {
+              const res = await fetch("/api/admin/payments/" + btn.dataset.id, {
+                method: "PUT",
+                headers: headers(),
+                body: JSON.stringify({ active: btn.dataset.active !== "true" })
+              });
+              const data = await res.json();
+              if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+              await loadPayments();
+            } catch (err) {
+              alert("Gagal: " + err.message);
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      let editingPmId = null;
+
+      $("pmAddBtn").addEventListener("click", async () => {
+        const msg = $("pmMsg");
+        msg.hidden = true;
+        $("pmAddBtn").disabled = true;
+        try {
+          const payload = {
+            type: $("pmType").value,
+            name: $("pmName").value,
+            accountName: $("pmAccName").value,
+            accountNumber: $("pmAccNum").value
+          };
+          if (pendingQrData) payload.imageUrl = pendingQrData;
+          const url = editingPmId ? "/api/admin/payments/" + editingPmId : "/api/admin/payments";
+          const method = editingPmId ? "PUT" : "POST";
+          const res = await fetch(url, { method, headers: headers(), body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          msg.textContent = editingPmId ? "✅ Metode diperbarui!" : "✅ Metode ditambahkan!";
+          msg.style.color = "#6ee7b7";
+          msg.hidden = false;
+          resetPmForm();
+          await loadPayments();
+        } catch (err) {
+          msg.textContent = err.message;
+          msg.style.color = "#fca5a5";
+          msg.hidden = false;
+        } finally {
+          $("pmAddBtn").disabled = false;
+        }
+      });
+
+      /* ---------- LOAD ALL ---------- */
+      function loadAll() {
+        return Promise.allSettled([
+          loadStats(), loadUsers(), loadOrders(), loadPackagesAdmin(), loadCoupons(),
+          loadAnnouncements(), loadBroadcastCount(), loadSettings(), loadPayments()
+        ]).then((results) => {
+          const failed = results.find((r) => r.status === "rejected");
+          if (failed) throw failed.reason;
+        });
+      }
+
+      setInterval(() => {
+        if ($("panelBox").hidden || document.hidden) return;
+        loadStats().catch(() => {});
+        loadOrders().catch(() => {});
+        loadUsers().catch(() => {});
+      }, 15000);
+
+      function openPanel() {
+        $("loginBox").hidden = true;
+        $("panelBox").hidden = false;
+        $("logoutAdmin").hidden = false;
+        $("aiFab").hidden = false;
+        loadAll().catch((err) => {
+          if (String(err.message).includes("Admin key")) closePanel();
+        });
+      }
+
+      function closePanel() {
+        sessionStorage.removeItem("nv_admin");
+        adminKey = "";
+        $("panelBox").hidden = true;
+        $("logoutAdmin").hidden = true;
+        $("aiFab").hidden = true;
+        $("aiChat").hidden = true;
+        $("loginBox").hidden = false;
+      }
+
+      $("aiFab").addEventListener("click", () => {
+        $("aiChat").hidden = !$("aiChat").hidden;
+      });
+      $("aiClose").addEventListener("click", () => { $("aiChat").hidden = true; });
+
+      $("aiForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = $("aiInput");
+        const q = input.value.trim();
+        if (!q) return;
+        const msgs = $("aiMsgs");
+        msgs.insertAdjacentHTML("beforeend", '<div class="ai-msg user">' + escapeHtml(q) + "</div>");
+        input.value = "";
+        msgs.insertAdjacentHTML("beforeend", '<div class="ai-msg bot typing"><i class="ph ph-circle-notch" style="animation:demo-spin .8s linear infinite;display:inline-block"></i> Mengetik...</div>');
+        msgs.scrollTop = msgs.scrollHeight;
+        try {
+          const res = await fetch("/api/admin/assistant", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ prompt: q })
+          });
+          const data = await res.json();
+          msgs.lastElementChild.remove();
+          if (!res.ok || !data.ok) throw new Error(data.error || "Gagal.");
+          msgs.insertAdjacentHTML("beforeend", '<div class="ai-msg bot">' + escapeHtml(data.reply) + "</div>");
+        } catch (err) {
+          msgs.lastElementChild.remove();
+          msgs.insertAdjacentHTML("beforeend", '<div class="ai-msg bot error">⚠ ' + escapeHtml(err.message) + "</div>");
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+      });
+
+      $("aiMsgs").addEventListener("click", (e) => {
+        const chip = e.target.closest(".ai-chips button");
+        if (!chip) return;
+        $("aiInput").value = chip.dataset.q;
+        $("aiForm").dispatchEvent(new Event("submit"));
+      });
+
+      $("loginBtn").addEventListener("click", () => {
+        adminKey = $("adminKey").value.trim();
+        $("loginError").hidden = true;
+        fetch("/api/admin/stats", { headers: headers() })
+          .then(async (res) => {
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || "Key salah.");
+            sessionStorage.setItem("nv_admin", adminKey);
+            openPanel();
+          })
+          .catch((err) => {
+            $("loginError").textContent = err.message;
+            $("loginError").hidden = false;
+          });
+      });
+
+      $("adminKey").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+      $("refreshBtn").addEventListener("click", () => loadAll().catch(() => {}));
+      $("logoutAdmin").addEventListener("click", closePanel);
+
+      if (adminKey) openPanel();
+    })();
+  </script>
+</body>
+</html>

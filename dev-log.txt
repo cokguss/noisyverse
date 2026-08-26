@@ -1,0 +1,34 @@
+
+> noisy-verse-backend@1.0.0 dev
+> node --watch server.js
+
+D:\Noisy AM Premium\backend\ai.js:83
+module.exports = { generateText, extractAiText, cleanMarkdown, assistant };
+                   ^
+
+ReferenceError: generateText is not defined
+    at Object.<anonymous> (D:\Noisy AM Premium\backend\ai.js:83:20)
+    at Module._compile (node:internal/modules/cjs/loader:1871:14)
+    at Object..js (node:internal/modules/cjs/loader:2002:10)
+    at Module.load (node:internal/modules/cjs/loader:1594:32)
+    at Module._load (node:internal/modules/cjs/loader:1396:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1617:12)
+    at require (node:internal/modules/helpers:153:16)
+    at Object.<anonymous> (D:\Noisy AM Premium\backend\server.js:7:12)
+    at Module._compile (node:internal/modules/cjs/loader:1871:14)
+
+Node.js v24.18.0
+Failed running 'server.js'. Waiting for file changes before restarting...
+Restarting 'server.js'
+Noisy Verse backend berjalan di http://localhost:3000
+[bot] Telegram bot aktif, mulai polling...
+(node:3084) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[bot] Bot: @noisyversepayment_bot
+Restarting 'server.js'
+Noisy Verse backend berjalan di http://localhost:3000
+[bot] Telegram bot aktif, mulai polling...
+(node:5572) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[bot] Bot: @noisyversepayment_bot

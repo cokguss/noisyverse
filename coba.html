@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coba Sekarang · Noisy Verse</title>
+  <meta name="description" content="Coba reverse website atau repo GitHub jadi prompt AI secara langsung di Noisy Verse." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <canvas id="aurora" aria-hidden="true"></canvas>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <header class="legal-nav">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <svg class="logo-svg" width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgn" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#c4b5fd"/>
+              <stop offset="0.55" stop-color="#8b5cf6"/>
+              <stop offset="1" stop-color="#5b21b6"/>
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#lgn)"/>
+          <rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+          <path d="M19 17 L12 24 L19 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M29 17 L36 24 L29 31" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Noisy<span>Verse</span>
+      </a>
+      <a href="index.html" class="btn-back"><i class="ph ph-arrow-left"></i> Beranda</a>
+    </div>
+  </header>
+
+  <main class="try-page">
+    <div class="container">
+      <span class="legal-badge">Playground</span>
+      <h1 class="try-title">Coba <span class="accent-glow">reverse sekarang.</span></h1>
+      <p class="try-sub">Daftar dan dapatkan 1x percobaan gratis. Tempel URL, prompt jadi dalam hitungan detik.</p>
+
+    <div class="auth-bar" id="authBar">
+      <div class="premium-banner" id="premiumBanner" hidden></div>
+      <div class="auth-guest" id="authGuest">
+        <span class="auth-info"><i class="ph-fill ph-lock-simple"></i> Login untuk membuka 1x percobaan gratis</span>
+        <a class="btn btn-primary" id="loginLink" href="login.html?next=%2Fcoba.html"><i class="ph ph-sign-in"></i> Masuk / Daftar</a>
+      </div>
+
+      <div class="auth-user" id="authUser" hidden>
+        <span class="user-chip"><i class="ph-fill ph-user-circle"></i> <span id="authName"></span></span>
+        <span class="trial-chip" id="trialChip"></span>
+        <button class="btn-mini" id="logoutBtn" type="button"><i class="ph ph-sign-out"></i> Keluar</button>
+      </div>
+    </div>
+
+      <div class="try-card reveal visible">
+        <div class="try-type" role="tablist">
+          <button class="type-btn active" data-type="repo" type="button">
+            <i class="ph-fill ph-github-logo"></i> Codebase
+          </button>
+          <button class="type-btn" data-type="website" type="button">
+            <i class="ph-fill ph-globe"></i> Website
+          </button>
+          <button class="type-btn" data-type="3d" type="button">
+            <i class="ph-fill ph-cube"></i> 3D <span class="soon-badge">Segera hadir</span>
+          </button>
+        </div>
+
+        <div class="try-input-row" id="tryInputRow">
+          <input type="text" id="targetInput" class="try-input" placeholder="owner/repo" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-primary" id="reverseBtn" type="button">
+            <i class="ph ph-magic-wand"></i> Reverse
+          </button>
+        </div>
+        <p class="try-hint" id="tryHint">Contoh: vercel/next.js · facebook/react</p>
+        <div class="try-examples" id="tryExamples"></div>
+
+        <div class="try-soon" id="trySoon" hidden>
+          <i class="ph ph-cube"></i>
+          <strong>Reverse 3D — Segera hadir</strong>
+          <p>Fitur mengubah objek/scene 3D menjadi prompt sedang kami siapkan. Nantikan update selanjutnya, ya!</p>
+        </div>
+
+        <div class="try-result" id="resultBox" hidden>
+          <div class="result-head">
+            <span class="result-label"><i class="ph-fill ph-sparkle"></i> Hasil Prompt</span>
+            <div class="result-actions" id="resultActions">
+              <div class="lang-toggle" id="langToggle" role="group" aria-label="Bahasa hasil">
+                <button class="lang-btn active" id="langEnBtn" type="button" data-lang="en">EN</button>
+                <button class="lang-btn" id="langIdBtn" type="button" data-lang="id">ID</button>
+              </div>
+              <button class="btn-mini" id="copyBtn" type="button"><i class="ph ph-copy-simple"></i> Salin</button>
+              <a class="btn-mini" id="designLink" href="#" target="_blank" rel="noopener" hidden><i class="ph ph-palette"></i> Lihat Design System</a>
+            </div>
+          </div>
+          <div class="skeleton-md" id="reverseSkeleton" hidden>
+            <div class="skeleton-line w90"></div>
+            <div class="skeleton-line w80"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line w60"></div>
+            <div class="skeleton-line w90 gap"></div>
+            <div class="skeleton-line w80"></div>
+            <div class="skeleton-line w60"></div>
+          </div>
+          <pre class="result-prompt" id="promptOutput"></pre>
+        </div>
+
+        <div class="try-error" id="errorBox" hidden></div>
+
+        <div class="pay-cta-card">
+          <div>
+            <h3><i class="ph-fill ph-lightning"></i> Butuh lebih dari 1x?</h3>
+            <p>Beli paket kuota lewat halaman pembayaran · proses cepat via Telegram.</p>
+          </div>
+          <a href="bayar.html" class="btn btn-primary"><i class="ph ph-credit-card"></i> Beli Paket</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="legal-footer">
+    © 2026 Noisy Verse · <a href="privacy.html" style="color: var(--accent-soft);">Kebijakan Privasi</a> · <a href="terms.html" style="color: var(--accent-soft);">Syarat &amp; Ketentuan</a>
+  </footer>
+
+  <script src="js/announcements.js"></script>
+  <script src="js/user-assistant.js"></script>
+  <script src="js/try.js"></script>
+</body>
+</html>
