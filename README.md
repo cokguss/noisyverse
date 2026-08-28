@@ -27,6 +27,7 @@
 | **PRD AI** | Generate PRD dari brief singkat, plus klarifikasi, audit, & penyempurnaan otomatis |
 | **Terjemahan** | Terjemahkan hasil reverse EN ⇄ ID tanpa merusak struktur markdown |
 | **Paket & Kupon** | Harga dinamis, kuota reverse/PRD per paket, kupon diskon |
+| **Statistik Realtime** | Jumlah pengunjung & "sedang online" ter-*update* seketika via Supabase Realtime |
 | **Pembayaran** | Konfirmasi bukti bayar via bot Telegram → aktivasi paket otomatis |
 | **Admin Panel** | Kelola user, pesanan, paket, kupon, notifikasi, broadcast, & maintenance |
 
@@ -34,7 +35,7 @@
 
 - 🖥️ Frontend statis murni (HTML/CSS/*vanilla* JS) — tanpa framework, ringan & cepat
 - 🔒 Auth berbasis cookie sesi (HttpOnly), password di-*hash* `scrypt` + *salt*
-- 📊 Statistik pengunjung dengan IP di-*hash* SHA256 (privasi terjaga)
+- 📊 Statistik pengunjung **realtime** — IP di-*hash* SHA256, penghitungan atomik di Postgres
 - 🤖 Fallback AI mandiri saat upstream reverse gagal — layanan tetap jalan
 - 🚀 Siap deploy *full-serverless* di Vercel + Supabase
 
@@ -76,13 +77,19 @@ npm run dev
 Browser (statis)                Serverless (Vercel)              Layanan
 ─────────────────               ───────────────────              ───────
 index.html / prd.html  ──fetch──►  /api/*  (Express app)
-                                     ├──► reverse ───────────►  GitReverse / AI fallback
-                                     ├──► PRD ───────────────►  AI providers
-                                     ├──► auth/orders/kupon ──►  Supabase (kv_store)
-                                     └──► /api/telegram/webhook ◄── Telegram Bot API
+       │                             ├──► reverse ───────────►  GitReverse / AI fallback
+       │                             ├──► PRD ───────────────►  AI providers
+       │                             ├──► auth/orders/kupon ──►  Supabase (kv_store)
+       │                             ├──► track/visit ───────►  Supabase (RPC track_visit)
+       │                             └──► /api/telegram/webhook ◄── Telegram Bot API
+       │
+       └── WebSocket ────────────────────────────────────────►  Supabase Realtime
+                                                                (tabel site_stats)
 ```
 
 Backend Express (`backend/server.js`) berjalan sebagai **satu serverless function** (`api/index.js`). Semua data yang dulu di file JSON kini disimpan di Supabase Postgres dengan model **KV-blob**: satu tabel `kv_store(key, data jsonb)`, satu baris per entitas (`users`, `orders`, `packages`, dst.). Bot Telegram berpindah dari *polling* ke **webhook** agar cocok dengan lingkungan *stateless*.
+
+**Statistik pengunjung realtime.** Statistik tidak ikut model KV-blob karena butuh penghitungan atomik dan siaran instan. Dua tabel khusus dipakai: `site_stats` (satu baris agregat) dan `visitor_hits` (hash IP + `last_seen`). Server memanggil RPC Postgres (`track_visit`, `touch_visit`, `refresh_stats`) sehingga seluruh penambahan terjadi di dalam database — aman dari *race condition* antar-*invocation*. Browser lalu berlangganan perubahan baris `site_stats` lewat **Supabase Realtime** memakai *publishable key* (hanya `SELECT`; tabel `visitor_hits` ditolak total oleh RLS), jadi angka bergerak seketika tanpa *polling*. Bila `SUPABASE_ANON_KEY` tidak di-set atau WebSocket gagal, frontend otomatis kembali ke *polling* 30 detik.
 
 ---
 
@@ -102,6 +109,7 @@ noisyverse/
 │   ├── bot.js            # Bot Telegram (polling + webhook)
 │   ├── ai.js             # Klien AI multi-provider + fallback
 │   ├── store.js          # Data layer Supabase (KV-blob)
+│   ├── stats.js          # Statistik pengunjung realtime (RPC + fallback)
 │   ├── set-webhook.js    # Script daftar/hapus webhook Telegram
 │   └── supabase-schema.sql
 └── vercel.json           # Rewrites /api/* + maxDuration 60s
@@ -127,14 +135,17 @@ noisyverse/
 | Variabel | Wajib? | Keterangan |
 | --- | --- | --- |
 | `SUPABASE_URL` | ✅ | URL project Supabase |
-| `SUPABASE_SERVICE_KEY` | ✅ | *service_role* key (server-side saja) |
+| `SUPABASE_SERVICE_KEY` | ✅ | *service_role* / `sb_secret_…` key (server-side saja) |
+| `SUPABASE_ANON_KEY` | ➖ | *publishable* / `sb_publishable_…` key — dipakai browser untuk statistik realtime. Kosong = frontend jatuh ke *polling* |
 | `ADMIN_KEY` | ✅ | Kunci akses panel admin (`X-Admin-Key`) |
 | `TELEGRAM_BOT_TOKEN` | ✅ | Token bot dari BotFather |
 | `TELEGRAM_OWNER_ID` | ✅ | ID Telegram owner (penerima notifikasi) |
 | `PUBLIC_BASE_URL` | ➖ | Domain publik untuk webhook & callback bot |
 | `TELEGRAM_WEBHOOK_SECRET` | ➖ | Secret verifikasi webhook |
 | `TELEGRAM_BOT_USERNAME` | ➖ | Username bot (fallback tampilan frontend) |
-| `AI_API_URL` / `AI_API_KEY` / … | ➖ | Override provider AI (ada fallback default) |
+| `VISITOR_SALT` | ➖ | Salt hash IP pengunjung (ganti dengan string acak sendiri) |
+| `AI_API_KEY` | ➖ | Key provider AI utama; tanpa ini rantai *fallback* pakai provider tanpa-key |
+| `AI_API_URL` / `UNLIAI_URL` / … | ➖ | Override endpoint provider AI |
 
 > ⚠️ Vercel **Hobby** membatasi durasi function **60 detik**. Reverse (±22s) + fallback AI masih aman; jaga `REVERSE_TIMEOUT_MS` di bawah batas.
 
@@ -143,7 +154,8 @@ noisyverse/
 ## ⚠️ Catatan
 
 - Reverse bergantung pada upstream *GitReverse*; saat *down*, sistem otomatis pakai *fallback* AI mandiri.
-- Model *KV-blob* membaca-menulis blob utuh per entitas — sederhana & aman pada skala saat ini, bukan untuk *concurrency* ekstrem.
+- Model *KV-blob* membaca-menulis blob utuh per entitas — sederhana & aman pada skala saat ini, bukan untuk *concurrency* ekstrem. Statistik pengunjung **tidak** memakai model ini (pakai RPC atomik di Postgres).
+- Statistik realtime butuh tabel `site_stats`/`visitor_hits` dari `supabase-schema.sql`. Bila skema belum dijalankan, `backend/stats.js` otomatis jatuh ke `kv_store` — fitur tetap jalan, hanya tidak realtime.
 - Data lama di `backend/data/*.json` **tidak** ikut di-commit (ada di `.gitignore`); migrasikan manual ke Supabase bila perlu.
 - Rotasi `TELEGRAM_BOT_TOKEN` & `ADMIN_KEY` bila nilai lama pernah terekspos.
 

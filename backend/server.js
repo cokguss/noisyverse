@@ -5,6 +5,7 @@ const net = require("net");
 const bot = require("./bot");
 const ai = require("./ai");
 const { loadStore, saveStore, seedStore } = require("./store");
+const stats = require("./stats");
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 if (!ADMIN_KEY) {
@@ -194,8 +195,9 @@ async function redeemCoupon(code) {
 }
 
 
-async function loadVisitors() { return loadStore("visitors", { total: 0, visitors: {} }); }
-async function saveVisitors(data) { return saveStore("visitors", data); }
+// Statistik pengunjung kini ditangani backend/stats.js (tabel site_stats +
+// visitor_hits, realtime). Key kv_store "visitors" hanya dipakai stats.js
+// sebagai fallback bila skema statistik belum dijalankan.
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -658,6 +660,8 @@ app.post("/api/ai/prd", rateLimit, async (req, res, next) => {
         fresh.prdUsed = (fresh.prdUsed || 0) + 1;
         await saveUsers(users);
       }
+      // Siarkan counter baru ke klien realtime.
+      await bumpStats();
     }
 
     const freshUser = (await loadUsers()).find((u) => u.id === user.id);
@@ -977,49 +981,99 @@ app.delete("/api/projects/:id", async (req, res, next) => {
   }
 });
 
-/* ---------- VISITOR STATS ---------- */
+/* ---------- VISITOR STATS (realtime via Supabase) ---------- */
+
+/** Hash IP dengan salt — IP asli tidak pernah disimpan. */
+function visitorHash(req) {
+  const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown")
+    .split(",")[0]
+    .trim();
+  const salt = process.env.VISITOR_SALT || "noisy-verse-salt";
+  return crypto.createHash("sha256").update(ip + salt).digest("hex").slice(0, 16);
+}
+
+/** Counter turunan dari data aplikasi (dipakai untuk sinkronisasi site_stats). */
+async function appCounters() {
+  const users = await loadUsers();
+  return {
+    reverses: users.reduce((s, u) => s + (u.reverseUsed || 0), 0),
+    prd: users.reduce((s, u) => s + (u.prdUsed || 0), 0),
+    members: users.length
+  };
+}
+
+/**
+ * Siarkan counter aplikasi terbaru ke site_stats (memicu event realtime).
+ * Di-await supaya selesai sebelum function serverless dibekukan, tapi
+ * kegagalan di sini TIDAK boleh menggagalkan request utama.
+ */
+async function bumpStats() {
+  try {
+    await stats.refreshStats(await appCounters());
+  } catch (err) {
+    console.error("[stats] bumpStats gagal:", err.message);
+  }
+}
 
 app.post("/api/track/visit", async (req, res) => {
-  const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
-  const hash = crypto.createHash("sha256").update(ip + "noisy-verse-salt").digest("hex").slice(0, 16);
-  const data = await loadVisitors();
-  const now = Date.now();
-  data.total = (data.total || 0) + 1;
-  const existing = data.visitors[hash];
-  data.visitors[hash] = {
-    lastSeen: now,
-    count: existing ? (existing.count || 0) + 1 : 1
-  };
-  for (const [h, v] of Object.entries(data.visitors)) {
-    if (now - v.lastSeen > 30 * 24 * 60 * 60 * 1000) delete data.visitors[h];
+  try {
+    // Satu RPC: catat kunjungan + sinkronkan counter aplikasi sekaligus.
+    await stats.trackVisit(visitorHash(req), await appCounters());
+  } catch (err) {
+    console.error("[stats] track visit gagal:", err.message);
   }
-  await saveVisitors(data);
   res.json({ ok: true });
 });
 
 app.get("/api/stats/visitors", async (req, res) => {
-  const data = await loadVisitors();
-  const now = Date.now();
-  const live = Object.values(data.visitors).filter((v) => now - v.lastSeen < 5 * 60 * 1000).length;
-  res.json({ ok: true, total: data.total || 0, unique: Object.keys(data.visitors).length, live });
+  const s = await stats.readStats();
+  res.json({ ok: true, total: s.total, unique: s.unique, live: s.live });
+});
+
+/**
+ * Heartbeat dari browser (~60s sekali) supaya angka "sedang online" akurat:
+ * menyegarkan last_seen tanpa menaikkan total kunjungan.
+ */
+app.post("/api/track/heartbeat", async (req, res) => {
+  try {
+    await stats.touchVisit(visitorHash(req));
+  } catch (err) {
+    console.error("[stats] heartbeat gagal:", err.message);
+  }
+  res.json({ ok: true });
 });
 
 app.get("/api/stats/public", async (req, res) => {
-  const data = await loadVisitors();
-  const now = Date.now();
-  const live = Object.values(data.visitors).filter((v) => now - v.lastSeen < 5 * 60 * 1000).length;
-  const users = await loadUsers();
-  const reverses = users.reduce((s, u) => s + (u.reverseUsed || 0), 0);
-  const prd = users.reduce((s, u) => s + (u.prdUsed || 0), 0);
+  // refreshStats memastikan live_now akurat (tidak menghitung sesi kedaluwarsa)
+  // sekaligus menyiarkan angka terbaru ke klien realtime.
+  let s;
+  try {
+    s = await stats.refreshStats(await appCounters());
+  } catch {
+    s = null;
+  }
+  if (!s) s = await stats.readStats();
   res.json({
     ok: true,
-    totalVisits: data.total || 0,
-    uniqueVisitors: Object.keys(data.visitors).length,
-    liveNow: live,
-    reverses,
-    prd,
-    members: users.length
+    totalVisits: s.total,
+    uniqueVisitors: s.unique,
+    liveNow: s.live,
+    reverses: s.reverses,
+    prd: s.prd,
+    members: s.members
   });
+});
+
+/**
+ * Kredensial read-only untuk langganan realtime di browser.
+ * Publishable/anon key memang aman dipublikasikan: tabel site_stats hanya
+ * punya policy SELECT, dan visitor_hits (berisi hash IP) ditolak total oleh RLS.
+ * Bila key tidak di-set, frontend otomatis kembali ke polling biasa.
+ */
+app.get("/api/stats/realtime-config", (req, res) => {
+  const url = process.env.SUPABASE_URL || "";
+  const key = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+  res.json({ ok: true, enabled: Boolean(url && key), url, key });
 });
 
 app.get("/api/admin/orders", requireAdmin, async (req, res) => {
@@ -1668,6 +1722,8 @@ app.post("/api/auth/register", rateLimit, async (req, res, next) => {
     users.push(user);
     await saveUsers(users);
     await setSession(res, user.id);
+    // Jumlah member berubah -> siarkan ke klien realtime.
+    await bumpStats();
 
     res.status(201).json({ ok: true, user: publicUser(user) });
   } catch (err) {
@@ -1767,6 +1823,8 @@ app.post("/api/reverse", rateLimit, async (req, res, next) => {
         freshUsed = fresh.reverseUsed;
         await saveUsers(users);
       }
+      // Siarkan counter baru ke klien realtime.
+      await bumpStats();
     }
 
     res.json({

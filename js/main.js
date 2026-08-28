@@ -1,6 +1,8 @@
 (() => {
   "use strict";
 
+  const $ = (id) => document.getElementById(id);
+
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---------- CINEMATIC 3D AURORA (WebGL shader) ---------- */
@@ -316,69 +318,172 @@
     } catch {}
   })();
 
-  /* ---------- VISITOR STATS ---------- */
+  /* ---------- VISITOR STATS (realtime via Supabase) ---------- */
   (async () => {
     const chip = document.getElementById("visitorChip");
+    const bigSection = document.getElementById("statistik");
+    if (!chip && !bigSection) return;
+
+    const el = (id) => document.getElementById(id);
+    const setText = (id, val) => {
+      const node = el(id);
+      if (node && val !== undefined && val !== null) node.textContent = Number(val).toLocaleString("id-ID");
+    };
+
+    // Nilai terakhir yang diketahui; dipakai supaya animasi count-up di section
+    // besar tetap mulai dari angka benar meski realtime sudah lebih dulu masuk.
+    const latest = { total: 0, unique: 0, live: 0, reverses: 0, prd: 0 };
+    let bigStatsPlayed = false;
+    // Saat animasi count-up berjalan, jangan biarkan update realtime menimpa
+    // angka di tengah animasi (nanti dipaint ulang setelah animasi selesai).
+    let animating = false;
+
+    const paintChip = () => {
+      if (!chip) return;
+      setText("vLive", latest.live);
+      setText("vTotal", latest.total);
+      chip.hidden = false;
+    };
+
+    const paintBigStats = () => {
+      if (!bigStatsPlayed || animating) return;
+      setText("bsVisits", latest.total);
+      setText("bsUnique", latest.unique);
+      setText("bsReverses", latest.reverses);
+      setText("bsPrd", latest.prd);
+      setText("bsLive", latest.live);
+    };
+
+    const applySnapshot = (s) => {
+      if (!s) return;
+      if (s.total !== undefined) latest.total = s.total;
+      if (s.unique !== undefined) latest.unique = s.unique;
+      if (s.live !== undefined) latest.live = s.live;
+      if (s.reverses !== undefined) latest.reverses = s.reverses;
+      if (s.prd !== undefined) latest.prd = s.prd;
+      paintChip();
+      paintBigStats();
+    };
+
+    // Bentuk baris site_stats (snake_case) -> bentuk internal.
+    const fromRow = (row) => ({
+      total: Number(row.total_visits) || 0,
+      unique: Number(row.unique_visitors) || 0,
+      live: Number(row.live_now) || 0,
+      reverses: Number(row.reverses) || 0,
+      prd: Number(row.prd) || 0
+    });
+
+    /* --- 1. Catat kunjungan, lalu ambil snapshot awal --- */
     try {
       await fetch("/api/track/visit", { method: "POST" });
     } catch {}
-    const update = async () => {
+
+    const fetchSnapshot = async () => {
       try {
-        const res = await fetch("/api/stats/visitors");
+        const res = await fetch("/api/stats/public");
         const data = await res.json();
-        if (!data.ok || !chip) return;
-        $("vLive").textContent = data.live;
-        $("vTotal").textContent = data.total;
-        chip.hidden = false;
+        if (!data.ok) return;
+        applySnapshot({
+          total: data.totalVisits,
+          unique: data.uniqueVisitors,
+          live: data.liveNow,
+          reverses: data.reverses,
+          prd: data.prd
+        });
       } catch {}
     };
-    update();
-    setInterval(update, 30000);
-  })();
+    await fetchSnapshot();
 
-  /* ---------- BIG STATS SECTION ---------- */
-  (async () => {
-    const section = document.getElementById("statistik");
-    if (!section) return;
-    let played = false;
-    const countUp = (el, target) => {
-      const dur = 1400;
-      const start = performance.now();
-      const step = (now) => {
-        const p = Math.min((now - start) / dur, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        el.textContent = Math.round(target * eased).toLocaleString("id-ID");
-        if (p < 1) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
+    /* --- 2. Heartbeat: jaga status "online" tetap akurat --- */
+    const heartbeat = () => {
+      fetch("/api/track/heartbeat", { method: "POST", keepalive: true }).catch(() => {});
     };
-    const io = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && !played) {
-          played = true;
-          io.disconnect();
-          fetch("/api/stats/public")
-            .then((r) => r.json())
-            .then((data) => {
-              if (!data.ok) return;
-              const map = {
-                bsVisits: data.totalVisits,
-                bsUnique: data.uniqueVisitors,
-                bsReverses: data.reverses,
-                bsPrd: data.prd
-              };
-              for (const [id, val] of Object.entries(map)) {
-                const el = document.getElementById(id);
-                if (el) countUp(el, val || 0);
-              }
-              const live = document.getElementById("bsLive");
-              if (live) live.textContent = data.liveNow;
-            })
-            .catch(() => {});
-        }
+    setInterval(heartbeat, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") heartbeat();
+    });
+
+    /* --- 3. Langganan realtime ke baris site_stats --- */
+    let realtimeLive = false;
+    try {
+      const cfgRes = await fetch("/api/stats/realtime-config");
+      const cfg = await cfgRes.json();
+      if (cfg.ok && cfg.enabled) {
+        const { createClient } = await import(
+          "https://esm.sh/@supabase/supabase-js@2.112.4"
+        );
+        const sb = createClient(cfg.url, cfg.key, {
+          auth: { persistSession: false, autoRefreshToken: false }
+        });
+        sb.channel("site-stats")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "site_stats" },
+            (payload) => {
+              if (payload.new) applySnapshot(fromRow(payload.new));
+            }
+          )
+          .subscribe((status) => {
+            realtimeLive = status === "SUBSCRIBED";
+          });
       }
-    }, { threshold: 0.3 });
-    io.observe(section);
+    } catch {
+      realtimeLive = false;
+    }
+
+    /* --- 4. Fallback polling bila realtime tidak tersedia --- */
+    setInterval(() => {
+      if (!realtimeLive) fetchSnapshot();
+    }, 30000);
+
+    /* --- 5. Section statistik besar: animasi count-up saat masuk viewport --- */
+    if (bigSection) {
+      const countUp = (node, target) =>
+        new Promise((resolve) => {
+          const dur = 1400;
+          const start = performance.now();
+          const step = (now) => {
+            const p = Math.min((now - start) / dur, 1);
+            const eased = 1 - Math.pow(1 - p, 3);
+            node.textContent = Math.round(target * eased).toLocaleString("id-ID");
+            if (p < 1) requestAnimationFrame(step);
+            else resolve();
+          };
+          requestAnimationFrame(step);
+        });
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting && !bigStatsPlayed) {
+              bigStatsPlayed = true;
+              animating = true;
+              io.disconnect();
+              const map = {
+                bsVisits: latest.total,
+                bsUnique: latest.unique,
+                bsReverses: latest.reverses,
+                bsPrd: latest.prd
+              };
+              const runs = [];
+              for (const [id, val] of Object.entries(map)) {
+                const node = el(id);
+                if (node) runs.push(countUp(node, val || 0));
+              }
+              setText("bsLive", latest.live);
+              // Setelah animasi selesai, sinkronkan lagi ke angka terbaru
+              // (bisa saja sudah berubah lewat realtime saat animasi berjalan).
+              Promise.all(runs).then(() => {
+                animating = false;
+                paintBigStats();
+              });
+            }
+          }
+        },
+        { threshold: 0.3 }
+      );
+      io.observe(bigSection);
+    }
   })();
 
   /* ---------- DYNAMIC PRICING ---------- */
