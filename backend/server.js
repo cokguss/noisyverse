@@ -1717,7 +1717,22 @@ app.post("/api/admin/maintenance", requireAdmin, async (req, res, next) => {
   }
 });
 
-app.post("/api/auth/register", rateLimit, async (req, res, next) => {
+/**
+ * Endpoint yang WAJIB menulis ke database (auth, order, admin) tidak ada
+ * gunanya dicoba bila kredensial Supabase belum di-set — hasilnya cuma error
+ * 500. Tolak lebih awal dengan pesan yang bisa dipahami pengunjung.
+ * Endpoint baca-saja sengaja dibiarkan lewat supaya halaman tetap tampil
+ * (memakai nilai default) alih-alih blank.
+ */
+function requireStore(req, res, next) {
+  if (storeConfigured) return next();
+  return res.status(503).json({
+    ok: false,
+    error: "Server belum terhubung ke database, fitur akun sementara nonaktif. Hubungi admin via Telegram @noisy02."
+  });
+}
+
+app.post("/api/auth/register", rateLimit, requireStore, async (req, res, next) => {
   try {
     const { username, password } = req.body || {};
     const uname = String(username || "").trim();
@@ -1758,7 +1773,7 @@ app.post("/api/auth/register", rateLimit, async (req, res, next) => {
   }
 });
 
-app.post("/api/auth/login", rateLimit, async (req, res, next) => {
+app.post("/api/auth/login", rateLimit, requireStore, async (req, res, next) => {
   try {
     const { username, password } = req.body || {};
     const user = (await loadUsers()).find(
@@ -2154,7 +2169,17 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   const status = err.status || 500;
-  if (status === 500) console.error(err);
+  // Error 500 = bug/misconfigurasi server. Detail teknisnya (nama env yang
+  // kurang, stack trace, pesan driver) hanya untuk log — pengunjung cukup
+  // diberi pesan yang bisa mereka tindak lanjuti. httpError() dengan status
+  // 4xx/502 memang pesan untuk pengguna, jadi diteruskan apa adanya.
+  if (status === 500) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      error: "Server sedang bermasalah. Coba lagi sebentar lagi atau hubungi admin via Telegram @noisy02."
+    });
+  }
   const body = { ok: false, error: err.message || "Terjadi kesalahan internal." };
   if (err.code) body.code = err.code;
   res.status(status).json(body);
