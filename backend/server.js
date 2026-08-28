@@ -4,7 +4,7 @@ const path = require("path");
 const net = require("net");
 const bot = require("./bot");
 const ai = require("./ai");
-const { loadStore, saveStore, seedStore } = require("./store");
+const { loadStore, saveStore, seedStore, configured: storeConfigured } = require("./store");
 const stats = require("./stats");
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
@@ -114,8 +114,29 @@ async function loadPackages() {
 async function savePackages(list) { return saveStore("packages", list); }
 async function loadAnnouncements() { return loadStore("announcements", []); }
 async function saveAnnouncements(list) { return saveStore("announcements", list); }
-async function loadConfig() { return loadStore("config", { maintenance: false }); }
-async function saveConfig(cfg) { return saveStore("config", cfg); }
+/**
+ * `config` dibaca oleh middleware maintenance pada SETIAP request /api/*, jadi
+ * satu roundtrip Supabase menempel di semua endpoint. Cache pendek in-memory
+ * menghapus biaya itu; saveConfig() membatalkan cache sehingga toggle
+ * maintenance dari panel admin tetap langsung terasa pada invocation ini.
+ */
+const CONFIG_TTL_MS = 10 * 1000;
+let configCache = null;
+let configCacheAt = 0;
+
+async function loadConfig() {
+  const now = Date.now();
+  if (configCache && now - configCacheAt < CONFIG_TTL_MS) return configCache;
+  const cfg = await loadStore("config", { maintenance: false });
+  configCache = cfg;
+  configCacheAt = now;
+  return cfg;
+}
+async function saveConfig(cfg) {
+  configCache = cfg;
+  configCacheAt = Date.now();
+  return saveStore("config", cfg);
+}
 
 async function getPackageById(id) {
   return (await loadPackages()).find((p) => p.id === id) || null;
@@ -618,7 +639,14 @@ function requireAdmin(req, res, next) {
 /* ---------- routes ---------- */
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, service: "noisy-verse", time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    service: "noisy-verse",
+    // `store: false` = SUPABASE_URL/SUPABASE_SERVICE_KEY belum di-set di env,
+    // jadi tidak ada data yang tersimpan. Berguna untuk cek cepat pasca-deploy.
+    store: storeConfigured,
+    time: new Date().toISOString()
+  });
 });
 
 app.get("/api/config", async (req, res) => {
@@ -1542,9 +1570,8 @@ app.delete("/api/admin/payments/:id", requireAdmin, async (req, res, next) => {
 /* ---------- STATS / EXPORT / BROADCAST / MAINTENANCE ---------- */
 
 app.get("/api/admin/stats", requireAdmin, async (req, res) => {
-  const users = await loadUsers();
-  const orders = await loadOrders();
-  const pkgList = await loadPackages();
+  // Tiga blob independen -> baca paralel, bukan berurutan (3 roundtrip jadi 1).
+  const [users, orders, pkgList] = await Promise.all([loadUsers(), loadOrders(), loadPackages()]);
   const premiumActive = users.filter((u) => hasActivePackage(u)).length;
   const revenue = orders
     .filter((o) => o.status === "selesai")

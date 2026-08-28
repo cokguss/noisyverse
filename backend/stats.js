@@ -13,13 +13,17 @@
  * di sini otomatis jatuh ke penyimpanan lama di kv_store key `visitors`
  * supaya fitur tetap hidup dan tidak ada yang rusak.
  */
-const { supabase, loadStore, saveStore } = require("./store");
+const { supabase, loadStore, saveStore, configured } = require("./store");
 
 const LIVE_WINDOW_MS = 5 * 60 * 1000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Cache status ketersediaan skema realtime, supaya tidak menebak tiap request. */
-let realtimeReady = null;
+/**
+ * Cache status ketersediaan skema realtime, supaya tidak menebak tiap request.
+ * Bila Supabase belum terkonfigurasi, langsung tandai tidak tersedia agar tidak
+ * ada satu pun panggilan jaringan yang dicoba (dulu ini menggantung ~7 detik).
+ */
+let realtimeReady = configured ? null : false;
 
 function markUnavailable(err) {
   const msg = (err && (err.message || err.code)) || "";
@@ -61,7 +65,9 @@ async function fallbackTrack(hash) {
   for (const [h, v] of Object.entries(data.visitors)) {
     if (now - v.lastSeen > RETENTION_MS) delete data.visitors[h];
   }
-  await saveStore("visitors", data);
+  // Tanpa kredensial Supabase tidak ada tempat menyimpan; kembalikan angka
+  // in-memory saja supaya endpoint tetap membalas cepat, bukan melempar error.
+  if (configured) await saveStore("visitors", data);
   return fallbackShape(data);
 }
 
@@ -185,7 +191,7 @@ async function touchVisit(hash) {
   const now = Date.now();
   const existing = data.visitors[hash];
   data.visitors[hash] = { lastSeen: now, count: existing ? existing.count || 1 : 1 };
-  await saveStore("visitors", data);
+  if (configured) await saveStore("visitors", data);
   return fallbackShape(data);
 }
 

@@ -17,18 +17,34 @@ const SUPABASE_SERVICE_KEY =
   "";
 const TABLE = process.env.SUPABASE_TABLE || "kv_store";
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error(
-    "[store] SUPABASE_URL / SUPABASE_SERVICE_KEY belum di-set. " +
-      "Set kedua env ini (service-role key, server-side saja) sebelum menjalankan."
-  );
+/**
+ * Apakah kredensial Supabase tersedia. Bila tidak, JANGAN pernah menembak
+ * jaringan: dulu klien dibuat ke "http://localhost:54321" sebagai placeholder,
+ * dan di lingkungan serverless setiap panggilan menggantung sampai timeout
+ * (~7 detik per akses data) sebelum akhirnya gagal. Sekarang modul ini tahu
+ * dirinya belum terkonfigurasi dan langsung mengembalikan fallback.
+ */
+const configured = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+
+const MISCONFIG_MSG =
+  "SUPABASE_URL / SUPABASE_SERVICE_KEY belum di-set. Isi kedua env ini " +
+  "(service-role key, server-side saja) lalu redeploy — tanpa itu data tidak tersimpan.";
+
+if (!configured) console.error("[store] " + MISCONFIG_MSG);
+
+/** Warn sekali per proses saja supaya log tidak dibanjiri satu baris per request. */
+let warnedMisconfig = false;
+function warnMisconfig(op) {
+  if (warnedMisconfig) return;
+  warnedMisconfig = true;
+  console.error("[store] " + op + " dilewati — " + MISCONFIG_MSG);
 }
 
-const supabase = createClient(
-  SUPABASE_URL || "http://localhost:54321",
-  SUPABASE_SERVICE_KEY || "missing-service-key",
-  { auth: { persistSession: false, autoRefreshToken: false } }
-);
+const supabase = configured
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
+  : null;
 
 function clone(v) {
   return v == null ? v : JSON.parse(JSON.stringify(v));
@@ -36,6 +52,10 @@ function clone(v) {
 
 /** Baca satu blob. Mengembalikan `fallback` (di-clone) bila baris belum ada / error. */
 async function loadStore(key, fallback) {
+  if (!configured) {
+    warnMisconfig("loadStore(" + key + ")");
+    return clone(fallback);
+  }
   try {
     const { data, error } = await supabase
       .from(TABLE)
@@ -53,6 +73,10 @@ async function loadStore(key, fallback) {
 
 /** Tulis (upsert) satu blob. */
 async function saveStore(key, value) {
+  if (!configured) {
+    warnMisconfig("saveStore(" + key + ")");
+    throw new Error(MISCONFIG_MSG);
+  }
   const { error } = await supabase
     .from(TABLE)
     .upsert({ key, data: value, updated_at: new Date().toISOString() }, { onConflict: "key" });
@@ -65,6 +89,10 @@ async function saveStore(key, value) {
 
 /** Seed nilai default hanya bila key belum ada (idempoten). */
 async function seedStore(key, value) {
+  if (!configured) {
+    warnMisconfig("seedStore(" + key + ")");
+    return;
+  }
   try {
     const { data, error } = await supabase
       .from(TABLE)
@@ -78,4 +106,4 @@ async function seedStore(key, value) {
   }
 }
 
-module.exports = { supabase, loadStore, saveStore, seedStore, TABLE };
+module.exports = { supabase, loadStore, saveStore, seedStore, TABLE, configured };
