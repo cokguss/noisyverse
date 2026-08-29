@@ -226,7 +226,11 @@ async function openrouter(prompt, instruction, timeoutMs) {
         // OpenRouter otomatis coba berikutnya dalam request yang sama.
         models: OPENROUTER_MODELS,
         messages: [{ role: "user", content }],
-        temperature: 0.7,
+        // Suhu rendah = keluaran lebih fokus & ringkas. minimax-m3 di suhu 0.7
+        // cenderung bertele-tele sehingga 6000 token habis sebelum bagian akhir
+        // PRD (KPI/risiko/milestone) tercapai dan dokumen terpotong. 0.4 menekan
+        // verbositas itu tanpa mengorbankan struktur.
+        temperature: 0.4,
         max_tokens: OPENROUTER_MAX_TOKENS,
       }),
     },
