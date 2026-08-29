@@ -61,7 +61,7 @@ function cleanMarkdown(text) {
 // API ini menerima parameter lewat query string DAN body JSON; apikey wajib di
 // query (tanpa itu 401 "Parameter 'apikey' wajib disertakan"). Prompt panjang
 // dikirim di body supaya tidak menabrak batas panjang URL.
-async function haidarxd(prompt, instruction) {
+async function haidarxd(prompt, instruction, timeoutMs) {
   if (!AI_API_KEY) throw new Error("haidarxd tanpa apikey");
   const url = AI_API_URL + (AI_API_URL.includes("?") ? "&" : "?") + "apikey=" + encodeURIComponent(AI_API_KEY);
   // Field `instruction` diabaikan oleh provider ini, jadi gabungkan ke message —
@@ -77,7 +77,7 @@ async function haidarxd(prompt, instruction) {
       "Authorization": "Bearer " + AI_API_KEY
     },
     body: JSON.stringify({ message, thinking: false })
-  });
+  }, timeoutMs);
   if (!res.ok) throw new Error("haidarxd " + res.status);
   const data = await res.json().catch(() => null);
   const text = cleanMarkdown(extractAiText(data));
@@ -85,9 +85,9 @@ async function haidarxd(prompt, instruction) {
 }
 
 /* ---------- Provider 2: Unliai ---------- */
-async function unliai(prompt, instruction) {
+async function unliai(prompt, instruction, timeoutMs) {
   const full = instruction ? instruction + "\n\n" + prompt : prompt;
-  const res = await fetchWithTimeout(UNLIAI_URL + encodeURIComponent(full));
+  const res = await fetchWithTimeout(UNLIAI_URL + encodeURIComponent(full), undefined, timeoutMs);
   if (!res.ok) throw new Error("unliai " + res.status);
   const data = await res.json().catch(() => null);
   let text = data && data.result ? String(data.result.response || "").trim() : "";
@@ -96,9 +96,9 @@ async function unliai(prompt, instruction) {
 }
 
 /* ---------- Provider 3: MetaAI (llama-4-scout, andal untuk fallback) ---------- */
-async function metaai(prompt, instruction) {
+async function metaai(prompt, instruction, timeoutMs) {
   const full = instruction ? instruction + "\n\n" + prompt : prompt;
-  const res = await fetchWithTimeout(METAAI_URL + encodeURIComponent(full));
+  const res = await fetchWithTimeout(METAAI_URL + encodeURIComponent(full), undefined, timeoutMs);
   if (!res.ok) throw new Error("metaai " + res.status);
   const data = await res.json().catch(() => null);
   const text = data && data.result ? String(data.result.response || "").trim() : "";
@@ -112,11 +112,22 @@ const PROVIDERS = [
   { name: "metaai", fn: metaai }
 ];
 
-async function generateText(prompt, instruction) {
+async function generateText(prompt, instruction, opts) {
+  // budgetMs = anggaran waktu total untuk SELURUH chain. Tanpa ini, tiga provider
+  // × AI_TIMEOUT_MS bisa melewati batas 60s Vercel Hobby dan function mati sebelum
+  // sempat membalas apa pun (pemanggil kehilangan fallback-nya sendiri).
+  const budgetMs = opts && opts.budgetMs > 0 ? opts.budgetMs : 0;
+  const started = Date.now();
   const errors = [];
   for (const provider of PROVIDERS) {
+    let perCall;
+    if (budgetMs) {
+      const left = budgetMs - (Date.now() - started);
+      if (left < 4000) { errors.push(provider.name + ": waktu habis"); continue; }
+      perCall = Math.min(AI_TIMEOUT_MS, left);
+    }
     try {
-      const text = await provider.fn(prompt, instruction);
+      const text = await provider.fn(prompt, instruction, perCall);
       return { text, provider: provider.name };
     } catch (err) {
       errors.push(provider.name + ": " + err.message);

@@ -307,6 +307,10 @@ function cleanRepoUrl(raw) {
 }
 
 const REVERSE_UPSTREAM_TIMEOUT_MS = parseInt(process.env.REVERSE_TIMEOUT_MS, 10) || 22000;
+// Anggaran waktu untuk chain AI di dalam reverse. Jalur AI sekarang jalan PERTAMA,
+// dan kalau gagal masih ada GitReverse (≤22s) setelahnya — keduanya harus muat dalam
+// batas 60s function Vercel Hobby, termasuk ~15s fetch halaman targetnya.
+const REVERSE_AI_BUDGET_MS = parseInt(process.env.REVERSE_AI_BUDGET_MS, 10) || 20000;
 
 async function fetchWithTimeout(url, opts, ms) {
   const controller = new AbortController();
@@ -416,7 +420,7 @@ async function websiteViaAI(targetUrl) {
     "You are a senior product designer. Based on this real website's content and metadata, write ONE detailed, first-person build prompt in English that an AI website builder could use to recreate a site with the same purpose, structure, tone, and visual vibe. " +
     "Start with \"Build me\". Cover: the product and its purpose, the target audience, the overall aesthetic (colors, typography, mood), the hero section, the main page sections in order, key components, and notable interactions. " +
     "Write flowing prose across 4-8 paragraphs. Do NOT use markdown headings, code blocks, or bullet lists, and do NOT mention metadata, analysis, or that this was reverse-engineered.";
-  const { text } = await ai.generateText(summary, instruction);
+  const { text } = await ai.generateText(summary, instruction, { budgetMs: REVERSE_AI_BUDGET_MS });
   if (!text || !text.trim()) throw httpError(502, "Gagal membuat prompt dari website itu. Coba lagi.");
   return { prompt: text.trim(), designPath: null, fromCache: false, source: "ai" };
 }
@@ -458,17 +462,30 @@ async function repoViaAI(clean) {
     "You are a senior software engineer. Based on this real GitHub repository's metadata and README, write ONE detailed, first-person build prompt in English that an AI coding tool could use to recreate a project with the same purpose and capabilities. " +
     "Start with \"Build me\". Cover: what the project does, who it's for, the core features and how they work, the tech approach, and the expected behavior. " +
     "Write clear flowing prose across 3-6 paragraphs. Do NOT copy the README verbatim, do NOT use markdown headings or code blocks, and do NOT mention that this came from a README or analysis.";
-  const { text } = await ai.generateText(summary, instruction);
+  const { text } = await ai.generateText(summary, instruction, { budgetMs: REVERSE_AI_BUDGET_MS });
   if (!text || !text.trim()) throw httpError(502, "Gagal membuat prompt dari repo itu. Coba lagi.");
   return { prompt: text.trim(), repo: clean, source: "ai" };
 }
-/* ---------- Orkestrasi: coba GitReverse dulu, jatuh ke AI kalau gagal ---------- */
+/* ---------- Orkestrasi: AI sendiri dulu, GitReverse sebagai jaring pengaman ----------
+ * Urutan ini sengaja dibalik: dulu GitReverse dicoba lebih dulu, jadi hasil reverse
+ * praktis selalu datang dari upstream pihak ketiga dan model berbayar (claude-sonnet-5,
+ * lihat backend/ai.js) tidak pernah terpakai — padahal itu yang dipakai fitur PRD dan
+ * hasilnya jauh lebih detail. GitReverse tetap dipertahankan sebagai fallback supaya
+ * fitur tidak mati total kalau semua provider AI habis kuota.
+ */
 async function websiteToPrompt(targetUrl) {
   try {
-    return await websiteViaGitReverse(targetUrl);
-  } catch (e) {
-    console.warn("[reverse] GitReverse website gagal, pakai AI:", e.message);
     return await websiteViaAI(targetUrl);
+  } catch (e) {
+    console.warn("[reverse] AI website gagal, pakai GitReverse:", e.message);
+    try {
+      return await websiteViaGitReverse(targetUrl);
+    } catch (e2) {
+      console.warn("[reverse] GitReverse website juga gagal:", e2.message);
+      // Error dari jalur AI lebih informatif untuk pengguna (403/down/blokir),
+      // jadi itulah yang dilempar, bukan "gitreverse 500".
+      throw e;
+    }
   }
 }
 
@@ -478,10 +495,17 @@ async function repoToPrompt(repoUrl) {
     throw httpError(400, "Format repo harus owner/repo atau URL GitHub yang valid.");
   }
   try {
-    return await repoViaGitReverse(clean);
-  } catch (e) {
-    console.warn("[reverse] GitReverse repo gagal, pakai AI:", e.message);
     return await repoViaAI(clean);
+  } catch (e) {
+    // Repo tidak ada / privat: itu keputusan final, jangan buang waktu ke upstream.
+    if (e && e.status === 404) throw e;
+    console.warn("[reverse] AI repo gagal, pakai GitReverse:", e.message);
+    try {
+      return await repoViaGitReverse(clean);
+    } catch (e2) {
+      console.warn("[reverse] GitReverse repo juga gagal:", e2.message);
+      throw e;
+    }
   }
 }
 
