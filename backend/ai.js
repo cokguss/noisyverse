@@ -22,11 +22,15 @@ const GROQ_MAX_TOKENS = parseInt(process.env.GROQ_MAX_TOKENS, 10) || 12000;
 // `OPENROUTER_MODELS` dikirim sebagai array `models` agar OpenRouter otomatis
 // beralih ke model berikutnya bila satu model kena rate-limit upstream (429),
 // dalam SATU request — ini yang membuat model gratis andal meski pool-nya dibagi.
+// PENTING: OpenRouter menolak `models` lebih dari 3 item dengan HTTP 400
+// ("'models' array must have 3 items or fewer"), jadi daftar SELALU di-slice ke 3.
+// Tanpa slice, provider ini gagal instan dan seluruh anggaran waktu habis dipakai
+// proxy gratis yang juga gagal — gejalanya PRD balas 500 setelah ~30-40 detik.
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_URL = process.env.OPENROUTER_URL || "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
-  "minimax/minimax-m3:free,google/gemma-4-31b-it:free,nvidia/nemotron-3-super-120b-a12b:free,z-ai/glm-5.2:free")
-  .split(",").map((s) => s.trim()).filter(Boolean);
+  "minimax/minimax-m3:free,google/gemma-4-31b-it:free,nvidia/nemotron-3-super-120b-a12b:free")
+  .split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3);
 const OPENROUTER_MAX_TOKENS = parseInt(process.env.OPENROUTER_MAX_TOKENS, 10) || 8000;
 const UNLIAI_URL = process.env.UNLIAI_URL || "https://api.ikyyxd.my.id/ai/unliai?teks=";
 const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai?prompt=";
@@ -348,7 +352,7 @@ async function cici(prompt, instruction, timeoutMs) {
 // `maxMs` = batas per-provider; garzai/overchat sengaja pendek agar yang stall
 // cepat dilepas dan giliran berikutnya masih kebagian anggaran.
 const PROVIDERS = [
-  { name: "openrouter", fn: openrouter, maxMs: 45000 },
+  { name: "openrouter", fn: openrouter, maxMs: 50000 },
   { name: "groq", fn: groq, maxMs: 40000 },
   { name: "garzai", fn: garzai, maxMs: 14000 },
   { name: "overchat", fn: overchat, maxMs: 14000 },
