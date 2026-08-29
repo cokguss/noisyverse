@@ -58,6 +58,11 @@ function cleanMarkdown(text) {
     .split("\n")
     .filter((l) => !/^:::/.test(l.trim()))
     .join("\n")
+    // unliai menempelkan identitas dirinya di depan jawaban ("UnlimitedAI.Chat: ..."
+    // / "Halo, saya UnlimitedAI.Chat."). Kalau dibiarkan, nama provider gratis itu
+    // ikut tercetak sebagai baris pertama PRD dan hasil reverse pengguna.
+    .replace(/^\s*(?:hai|halo|hello|hi)[, ]+(?:saya|i am|i'm)\s+[A-Za-z0-9._-]*AI[A-Za-z0-9._-]*\.?\s*/i, "")
+    .replace(/^\s*[A-Za-z0-9._-]*AI(?:\.Chat)?[A-Za-z0-9._-]*\s*:\s*/i, "")
     .trim();
 }
 
