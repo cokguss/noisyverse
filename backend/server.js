@@ -672,6 +672,23 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// DIAGNOSTIK SEMENTARA — uji tiap provider AI dari datacenter Vercel. Token
+// sekali-pakai (bukan rahasia; hanya membuka daftar timing provider). Hapus rute
+// ini setelah root cause "AI mati" jelas.
+app.get("/api/ai/_diag", async (req, res) => {
+  if (req.query.key !== "diag-nv-9f3a") return res.status(401).json({ ok: false });
+  try {
+    const results = await ai.diagProviders(
+      "Sebut 3 fitur inti aplikasi todo list dalam poin singkat.",
+      "Jawab Bahasa Indonesia.",
+      18000
+    );
+    res.json({ ok: true, results });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.get("/api/config", async (req, res) => {
   let maintenance = false;
   try { maintenance = (await loadConfig()).maintenance === true; } catch {}
