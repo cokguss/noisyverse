@@ -27,7 +27,7 @@ const OPENROUTER_URL = process.env.OPENROUTER_URL || "https://openrouter.ai/api/
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
   "minimax/minimax-m3:free,google/gemma-4-31b-it:free,nvidia/nemotron-3-super-120b-a12b:free,z-ai/glm-5.2:free")
   .split(",").map((s) => s.trim()).filter(Boolean);
-const OPENROUTER_MAX_TOKENS = parseInt(process.env.OPENROUTER_MAX_TOKENS, 10) || 12000;
+const OPENROUTER_MAX_TOKENS = parseInt(process.env.OPENROUTER_MAX_TOKENS, 10) || 8000;
 const UNLIAI_URL = process.env.UNLIAI_URL || "https://api.ikyyxd.my.id/ai/unliai?teks=";
 const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai?prompt=";
 // Vercel Hobby membunuh function pada 60 detik. Timeout per provider harus jauh
