@@ -58,11 +58,25 @@ function cleanMarkdown(text) {
     .split("\n")
     .filter((l) => !/^:::/.test(l.trim()))
     .join("\n")
-    // unliai menempelkan identitas dirinya di depan jawaban ("UnlimitedAI.Chat: ..."
-    // / "Halo, saya UnlimitedAI.Chat."). Kalau dibiarkan, nama provider gratis itu
-    // ikut tercetak sebagai baris pertama PRD dan hasil reverse pengguna.
-    .replace(/^\s*(?:hai|halo|hello|hi)[, ]+(?:saya|i am|i'm)\s+[A-Za-z0-9._-]*AI[A-Za-z0-9._-]*\.?\s*/i, "")
+    // unliai membuka jawaban dengan sapaan lalu identitas dirinya, dalam banyak
+    // varian: "UnlimitedAI.Chat: ...", "Halo, saya UnlimitedAI.Chat.", "Halo! Saya
+    // UnlimitedAI.Chat." Kalau dibiarkan, nama provider gratis itu tercetak sebagai
+    // baris pertama PRD dan hasil reverse pengguna. Buang sapaan + kalimat identitas
+    // beserta baris kosong sesudahnya.
+    .replace(
+      /^\s*(?:hai|halo|hello|hi)[!., ]+(?:saya|aku|i am|i'm)\s+[A-Za-z0-9._-]*AI[A-Za-z0-9._-]*[.!]?\s*/i,
+      ""
+    )
     .replace(/^\s*[A-Za-z0-9._-]*AI(?:\.Chat)?[A-Za-z0-9._-]*\s*:\s*/i, "")
+    // unliai juga sering menaruh satu kalimat basa-basi ("Tentu, ini...", "Berikut
+    // adalah...", "Saya siap membantu...", "Sure, here is...") lalu pemisah `---`
+    // sebelum konten asli. Hanya buang bila diikuti `---`/heading — supaya tidak
+    // pernah memotong isi PRD/reverse yang sesungguhnya.
+    .replace(
+      /^\s*(?:tentu|baik(?:lah)?|berikut|saya siap|sure|certainly|here(?:'s| is)|of course)\b[^\n]*\n+(?=(?:---+|#{1,3}\s)\s*\n?)/i,
+      ""
+    )
+    .replace(/^\s*---+\s*\n+/, "")
     .trim();
 }
 
