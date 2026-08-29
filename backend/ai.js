@@ -171,7 +171,24 @@ async function garzai(prompt, instruction, timeoutMs) {
   }
 }
 
-/* ---------- Provider 3: Unliai ---------- */
+/* ---------- Provider 3: Overchat (AxlyDev) ----------
+ * Fallback kedua yang juga SANGGUP prompt besar (uji: PRD lengkap ~7 KB dibalas
+ * utuh). Lebih lambat dari garzai (~7-25s), jadi ditempatkan setelahnya, tapi jadi
+ * jaring pengaman penting untuk "perbaiki semua otomatis" yang mengirim seluruh
+ * dokumen PRD — payload terbesar di aplikasi. Endpoint GET, balas {status, result}.
+ */
+const OVERCHAT_URL = process.env.OVERCHAT_URL || "https://axlyapi.qzz.io/ai/overchat?text=";
+
+async function overchat(prompt, instruction, timeoutMs) {
+  const full = instruction ? String(instruction).trim() + "\n\n" + String(prompt).trim() : String(prompt).trim();
+  const res = await fetchWithTimeout(OVERCHAT_URL + encodeURIComponent(full), undefined, timeoutMs);
+  if (!res.ok) throw new Error("overchat " + res.status);
+  const data = await res.json().catch(() => null);
+  const text = data && data.result ? String(data.result).trim() : "";
+  return assertUsable(cleanMarkdown(text), "overchat");
+}
+
+/* ---------- Provider 4: Unliai ---------- */
 async function unliai(prompt, instruction, timeoutMs) {
   const full = instruction ? instruction + "\n\n" + prompt : prompt;
   const res = await fetchWithTimeout(UNLIAI_URL + encodeURIComponent(full), undefined, timeoutMs);
@@ -209,10 +226,12 @@ async function cici(prompt, instruction, timeoutMs) {
 /* ---------- Chain ---------- */
 // Urutan sengaja: claude berbayar dulu (kualitas terbaik) → garzai (fallback paling
 // andal saat kredit claude habis: sanggup prompt besar, patuh instruksi, cepat) →
-// unliai/cici/metaai (upaya terakhir; sering menolak/kehabisan kuota).
+// overchat (juga sanggup prompt besar, lebih lambat) → unliai/cici/metaai (upaya
+// terakhir; sering menolak/kehabisan kuota).
 const PROVIDERS = [
   { name: "haidarxd", fn: haidarxd },
   { name: "garzai", fn: garzai },
+  { name: "overchat", fn: overchat },
   { name: "unliai", fn: unliai },
   { name: "cici", fn: cici },
   { name: "metaai", fn: metaai }
