@@ -6,11 +6,12 @@ const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai
 // di bawah itu, karena chain mencoba tiga provider berurutan: kalau satu
 // provider menggantung 90s, function mati sebelum fallback dicoba dan pengguna
 // dapat "AI sedang tidak tersedia" padahal provider kedua sehat.
-const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 17000;
-// Anggaran default untuk seluruh chain. Empat provider × AI_TIMEOUT_MS = 68s, sudah
-// melewati batas 60s Vercel Hobby: function akan dibunuh sebelum sempat membalas
-// apa pun, jadi pemanggil kehilangan pesan error maupun fallback template-nya.
-const AI_CHAIN_BUDGET_MS = parseInt(process.env.AI_CHAIN_BUDGET_MS, 10) || 42000;
+const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 20000;
+// Anggaran default untuk seluruh chain. Harus di bawah batas 60s Vercel Hobby
+// (function dibunuh di 60s) tapi cukup lebar agar provider yang bekerja tapi lambat
+// dari datacenter Vercel (garzai butuh ~14s dari syd1, jauh lebih lambat dari lokal)
+// kebagian timeout penuh dan tidak keburu di-abort.
+const AI_CHAIN_BUDGET_MS = parseInt(process.env.AI_CHAIN_BUDGET_MS, 10) || 50000;
 
 async function fetchWithTimeout(url, opts, ms) {
   const controller = new AbortController();
@@ -250,11 +251,12 @@ async function generateText(prompt, instruction, opts) {
     if (budgetMs) {
       const left = budgetMs - (Date.now() - started);
       if (left < 5000) { errors.push(provider.name + ": waktu habis"); continue; }
-      // Bagi sisa waktu rata ke provider yang belum dicoba. Tanpa pembagian ini satu
-      // provider yang menggantung (unliai sering begitu) menghabiskan seluruh anggaran
-      // dan provider sehat di belakangnya tidak pernah kebagian giliran.
-      const share = left / (PROVIDERS.length - i);
-      perCall = Math.min(AI_TIMEOUT_MS, Math.max(6000, share));
+      // Beri tiap provider timeout penuh (AI_TIMEOUT_MS) selama sisa anggaran masih
+      // memadai — JANGAN dibagi rata. Pembagian rata dulu menyisakan garzai hanya
+      // ~8s padahal dari datacenter Vercel ia butuh ~14s, sehingga selalu di-abort
+      // meski provider itu sehat. Batas total tetap dijaga oleh cek `left < 5000`
+      // di atas, jadi chain tak akan menembus 60s.
+      perCall = Math.min(AI_TIMEOUT_MS, left);
     }
     try {
       const text = await provider.fn(prompt, instruction, perCall);
@@ -264,7 +266,6 @@ async function generateText(prompt, instruction, opts) {
     }
   }
   const err = new Error("Semua provider AI gagal (" + errors.join(" | ") + ")");
-  err.status = 502;
   err.providerErrors = errors;
   throw err;
 }
