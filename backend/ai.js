@@ -263,7 +263,10 @@ async function generateText(prompt, instruction, opts) {
       errors.push(provider.name + ": " + err.message);
     }
   }
-  throw new Error("Semua provider AI gagal (" + errors.join(" | ") + ")");
+  const err = new Error("Semua provider AI gagal (" + errors.join(" | ") + ")");
+  err.status = 502;
+  err.providerErrors = errors;
+  throw err;
 }
 
 /* ---------- Assistant (chatbot) — GarzAI utama, lalu MetaAI, Cici, Claude ---------- */
