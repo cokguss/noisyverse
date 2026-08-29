@@ -226,15 +226,6 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 async function loadSessions() { return loadStore("sessions", {}); }
 async function saveSessions(map) { return saveStore("sessions", map); }
 
-async function getSessionUserId(token) {
-  if (!token) return null;
-  const map = await loadSessions();
-  const entry = map[token];
-  if (!entry) return null;
-  if (Date.now() - entry.ts >= SESSION_TTL_MS) return null;
-  return entry.userId;
-}
-
 async function addSession(token, userId) {
   const map = await loadSessions();
   map[token] = { userId, ts: Date.now() };
@@ -531,9 +522,15 @@ function parseCookies(req) {
 
 async function currentUser(req) {
   const token = parseCookies(req).nv_session;
-  const userId = await getSessionUserId(token);
-  if (!userId) return null;
-  return (await loadUsers()).find((u) => u.id === userId) || null;
+  if (!token) return null;
+  // Dua blob ini saling bebas, jadi ambil bersamaan. Dulu berurutan: sesi dulu,
+  // baru user — dua roundtrip Supabase menempel di setiap request yang butuh
+  // login (termasuk /api/auth/me yang dipanggil saat tiap halaman dibuka).
+  const [sessionMap, users] = await Promise.all([loadSessions(), loadUsers()]);
+  const entry = sessionMap[token];
+  if (!entry) return null;
+  if (Date.now() - entry.ts >= SESSION_TTL_MS) return null;
+  return users.find((u) => u.id === entry.userId) || null;
 }
 
 async function setSession(res, userId) {
@@ -1506,9 +1503,41 @@ app.delete("/api/admin/announcements/:id", requireAdmin, async (req, res, next) 
 
 /* ---------- PAYMENT METHODS ---------- */
 
+/**
+ * QRIS yang diupload admin disimpan sebagai data URI base64 di dalam blob
+ * `payments` (~180 KB). Kalau ikut dikirim di /api/payments, setiap pembukaan
+ * halaman bayar mengunduh 180 KB JSON yang tidak bisa di-cache browser — itulah
+ * sebabnya QRIS baru muncul beberapa detik setelah halaman tampil. Di sini data
+ * URI ditukar dengan URL gambar sungguhan yang bisa di-cache.
+ */
+function publicPayment(p) {
+  if (!p.imageUrl || !/^data:/.test(p.imageUrl)) return p;
+  return { ...p, imageUrl: "/api/payments/" + encodeURIComponent(p.id) + "/qr" };
+}
+
 app.get("/api/payments", async (req, res) => {
-  const list = (await loadPayments()).filter((p) => p.active !== false);
+  const list = (await loadPayments()).filter((p) => p.active !== false).map(publicPayment);
   res.json({ ok: true, payments: list });
+});
+
+// Sajikan gambar QRIS sebagai berkas biner + cache panjang. ETag dari isi
+// gambar, jadi begitu admin mengganti QRIS, URL-nya sama tapi ETag berubah.
+app.get("/api/payments/:id/qr", async (req, res, next) => {
+  try {
+    const item = (await loadPayments()).find((p) => p.id === req.params.id);
+    if (!item || !item.imageUrl) throw httpError(404, "Gambar pembayaran tidak ditemukan.");
+    const m = /^data:([\w/+.-]+);base64,(.*)$/s.exec(item.imageUrl);
+    if (!m) throw httpError(404, "Gambar pembayaran tidak ditemukan.");
+    const buf = Buffer.from(m[2], "base64");
+    const etag = '"' + crypto.createHash("sha1").update(buf).digest("hex") + '"';
+    res.setHeader("ETag", etag);
+    res.setHeader("Content-Type", m[1]);
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=86400");
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    res.end(buf);
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/api/admin/payments", requireAdmin, async (req, res) => {

@@ -95,17 +95,13 @@
         <h3><i class="ph-fill ph-credit-card"></i> <span data-i18n="pay.method">Metode pembayaran</span></h3>
 
         <div id="payMethods">
-          <div class="pay-method">
+          <!-- Placeholder saat metode pembayaran sedang diambil dari /api/payments.
+               JANGAN taruh QR contoh di sini: sebelumnya markup ini menampilkan QR
+               dummy (data=NOISY-VERSE) yang terlihat beberapa detik lalu tertimpa
+               QRIS asli — pengunjung sempat melihat, bahkan bisa memindai, QR yang salah. -->
+          <div class="pay-method is-loading">
             <div class="pay-method-head">
-              <i class="ph-fill ph-qr-code"></i> QRIS
-            </div>
-            <div class="qris-frame">
-              <div class="qris-frame-head">
-                <span class="qris-brand">QRIS</span>
-                <span class="qris-sub">Pembayaran</span>
-              </div>
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=NOISY-VERSE" alt="Kode QRIS" />
-              <div class="qris-frame-foot">a.n. <b>Noisy Verse</b> · scan di semua aplikasi pembayaran</div>
+              <i class="ph-fill ph-qr-code"></i> <span data-i18n="pay.loading">Memuat metode pembayaran…</span>
             </div>
           </div>
         </div>

@@ -79,11 +79,17 @@
 
   /* ---------- PAYMENT METHODS (dynamic) ---------- */
   async function loadPaymentMethods() {
+    const wrap = document.getElementById("payMethods");
     try {
       const res = await fetch("/api/payments");
       const data = await res.json();
-      if (!data.ok || !data.payments.length) return;
-      const wrap = document.getElementById("payMethods");
+      if (!data.ok || !data.payments.length) {
+        wrap.innerHTML =
+          '<div class="pay-method"><div class="pay-method-head">' +
+          '<i class="ph-fill ph-warning-circle"></i> Metode pembayaran belum tersedia</div>' +
+          '<div class="bank-row"><span>Hubungi admin via Telegram untuk cara bayar.</span></div></div>';
+        return;
+      }
       wrap.innerHTML = "";
       for (const p of data.payments) {
         const div = document.createElement("div");
@@ -102,13 +108,13 @@
                 (p.accountNumber ? " · " + escapeHtml(p.accountNumber) : "") + "</div>" +
             "</div>";
         } else if (p.type === "qris") {
+          // Tanpa gambar QRIS yang diupload, tidak ada QR yang sah untuk dipindai.
+          // Dulu di sini digambar QR contoh (data=NOISY-VERSE) — pengunjung bisa
+          // memindainya dan uangnya tidak sampai ke mana pun. Jadi beri instruksi.
           div.innerHTML =
             '<div class="pay-method-head">' + logo + " " + escapeHtml(p.name) + "</div>" +
-            '<div class="qris-frame">' +
-              '<div class="qris-frame-head"><span class="qris-brand">QRIS</span><span class="qris-sub">Pembayaran</span></div>' +
-              '<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=NOISY-VERSE" alt="Kode QRIS" />' +
-              '<div class="qris-frame-foot">a.n. <b>' + escapeHtml(p.accountName) + "</b> · scan di semua aplikasi pembayaran</div>" +
-            "</div>";
+            '<div class="bank-row"><span>a.n. ' + escapeHtml(p.accountName) +
+              " · minta QR terbaru ke admin via Telegram</span></div>";
         } else {
           div.innerHTML =
             '<div class="pay-method-head">' + logo + " " + escapeHtml(p.name) + "</div>" +
@@ -116,7 +122,12 @@
         }
         wrap.appendChild(div);
       }
-    } catch {}
+    } catch {
+      wrap.innerHTML =
+        '<div class="pay-method"><div class="pay-method-head">' +
+        '<i class="ph-fill ph-warning-circle"></i> Gagal memuat metode pembayaran</div>' +
+        '<div class="bank-row"><span>Muat ulang halaman, atau hubungi admin via Telegram.</span></div></div>';
+    }
   }
 
   function escapeHtml(str) {
