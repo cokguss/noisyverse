@@ -1,5 +1,14 @@
 const AI_API_URL = process.env.AI_API_URL || "https://api.haidarxd.my.id/api/v1/ai/claude-sonnet-5";
 const AI_API_KEY = process.env.AI_API_KEY || "";
+// Groq — API resmi berkunci (free tier tanpa kartu, 30 RPM) yang ANDAL dari
+// datacenter Vercel, tidak seperti proxy gratis (garzai/overchat) yang sering
+// stall/di-abort dari syd1. Hanya aktif bila GROQ_API_KEY di-set; tanpa key
+// provider ini dilewati cepat sehingga perilaku lama tetap utuh. Model default
+// production yang tersedia di developer plan: openai/gpt-oss-120b (131k konteks,
+// sanggup payload PRD/reverse besar). Endpoint OpenAI-compatible.
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_URL = process.env.GROQ_URL || "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const UNLIAI_URL = process.env.UNLIAI_URL || "https://api.ikyyxd.my.id/ai/unliai?teks=";
 const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai?prompt=";
 // Vercel Hobby membunuh function pada 60 detik. Timeout per provider harus jauh
@@ -172,6 +181,40 @@ async function garzai(prompt, instruction, timeoutMs) {
   }
 }
 
+/* ---------- Provider utama opsional: Groq (butuh GROQ_API_KEY) ---------- */
+async function groq(prompt, instruction, timeoutMs) {
+  if (!GROQ_API_KEY) throw new Error("groq nonaktif (GROQ_API_KEY kosong)");
+  const content = instruction
+    ? String(instruction).trim() + "\n\n" + String(prompt).trim()
+    : String(prompt).trim();
+  const res = await fetchWithTimeout(
+    GROQ_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + GROQ_API_KEY,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: "user", content }],
+        temperature: 0.7,
+      }),
+    },
+    timeoutMs
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error("groq " + res.status + (body ? " " + body.slice(0, 120) : ""));
+  }
+  const data = await res.json().catch(() => null);
+  const text =
+    data && data.choices && data.choices[0] && data.choices[0].message
+      ? String(data.choices[0].message.content || "").trim()
+      : "";
+  return assertUsable(cleanMarkdown(text), "groq");
+}
+
 /* ---------- Provider 3: Overchat (AxlyDev) ----------
  * Fallback kedua yang juga SANGGUP prompt besar (uji: PRD lengkap ~7 KB dibalas
  * utuh). Lebih lambat dari garzai (~7-25s), jadi ditempatkan setelahnya, tapi jadi
@@ -238,6 +281,7 @@ async function cici(prompt, instruction, timeoutMs) {
 // `maxMs` = batas per-provider; garzai/overchat sengaja pendek agar yang stall
 // cepat dilepas dan giliran berikutnya masih kebagian anggaran.
 const PROVIDERS = [
+  { name: "groq", fn: groq, maxMs: 20000 },
   { name: "garzai", fn: garzai, maxMs: 14000 },
   { name: "overchat", fn: overchat, maxMs: 14000 },
   { name: "garzai-2", fn: garzai, maxMs: 14000 },
@@ -282,7 +326,15 @@ async function generateText(prompt, instruction, opts) {
 
 async function assistant(prompt, context) {
   const full = context ? context + "\n\nPertanyaan admin: " + prompt : prompt;
-  // Utama: GarzAI — paling andal saat ini (MetaAI sering 500 "insufficient tokens").
+  // Utama: Groq bila GROQ_API_KEY di-set (paling andal dari Vercel); tanpa key
+  // dilewati cepat dan jatuh ke GarzAI seperti sebelumnya.
+  try {
+    const text = await groq(prompt, context || "");
+    if (text) return text;
+  } catch (err) {
+    // lanjut ke fallback
+  }
+  // Fallback: GarzAI — paling andal di antara proxy gratis (MetaAI sering 500).
   try {
     const text = await garzai(prompt, context || "");
     if (text) return text;
