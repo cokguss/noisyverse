@@ -9,6 +9,25 @@ const AI_API_KEY = process.env.AI_API_KEY || "";
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GROQ_URL = process.env.GROQ_URL || "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+// PRD lengkap butuh ruang output besar. Tanpa max_completion_tokens eksplisit,
+// jawaban terpotong di tengah (fitur reverse/PRD kehilangan bagian akhir: skema
+// DB, daftar endpoint, KPI, dst). gpt-oss-120b konteks 131k jadi 12k token output
+// aman & cukup untuk PRD terpanjang. Groq pakai `max_completion_tokens` (bukan
+// `max_tokens` yang sudah deprecated).
+const GROQ_MAX_TOKENS = parseInt(process.env.GROQ_MAX_TOKENS, 10) || 12000;
+// OpenRouter — gateway OpenAI-compatible ke banyak model. ANDAL dari datacenter
+// (tidak seperti proxy gratis garzai/overchat yang stall dari Vercel) dan model
+// gratisnya (minimax-m3, gemma, nemotron) sanggup output PRD LENGKAP tanpa
+// terpotong. Hanya aktif bila OPENROUTER_API_KEY di-set; tanpa key dilewati cepat.
+// `OPENROUTER_MODELS` dikirim sebagai array `models` agar OpenRouter otomatis
+// beralih ke model berikutnya bila satu model kena rate-limit upstream (429),
+// dalam SATU request — ini yang membuat model gratis andal meski pool-nya dibagi.
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_URL = process.env.OPENROUTER_URL || "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
+  "minimax/minimax-m3:free,google/gemma-4-31b-it:free,nvidia/nemotron-3-super-120b-a12b:free,z-ai/glm-5.2:free")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+const OPENROUTER_MAX_TOKENS = parseInt(process.env.OPENROUTER_MAX_TOKENS, 10) || 12000;
 const UNLIAI_URL = process.env.UNLIAI_URL || "https://api.ikyyxd.my.id/ai/unliai?teks=";
 const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai?prompt=";
 // Vercel Hobby membunuh function pada 60 detik. Timeout per provider harus jauh
@@ -181,6 +200,53 @@ async function garzai(prompt, instruction, timeoutMs) {
   }
 }
 
+/* ---------- Provider utama opsional: OpenRouter (butuh OPENROUTER_API_KEY) ---------- */
+async function openrouter(prompt, instruction, timeoutMs) {
+  if (!OPENROUTER_API_KEY) throw new Error("openrouter nonaktif (OPENROUTER_API_KEY kosong)");
+  const content = instruction
+    ? String(instruction).trim() + "\n\n" + String(prompt).trim()
+    : String(prompt).trim();
+  const res = await fetchWithTimeout(
+    OPENROUTER_URL,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + OPENROUTER_API_KEY,
+        // Header opsional OpenRouter untuk atribusi (tidak wajib, tapi disarankan).
+        "HTTP-Referer": process.env.PUBLIC_BASE_URL || "https://noisyverse.vercel.app",
+        "X-Title": "Noisy Verse",
+      },
+      body: JSON.stringify({
+        // `models` = daftar fallback: bila model pertama kena 429 upstream,
+        // OpenRouter otomatis coba berikutnya dalam request yang sama.
+        models: OPENROUTER_MODELS,
+        messages: [{ role: "user", content }],
+        temperature: 0.7,
+        max_tokens: OPENROUTER_MAX_TOKENS,
+      }),
+    },
+    timeoutMs
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error("openrouter " + res.status + (body ? " " + body.slice(0, 120) : ""));
+  }
+  // OpenRouter kadang mengirim whitespace/komentar keepalive (": ...") SEBELUM
+  // body JSON saat menunggu upstream. JSON.parse gagal pada komentar itu, jadi
+  // baca sebagai teks lalu parse mulai dari '{' pertama.
+  const raw = await res.text();
+  const i = raw.indexOf("{");
+  let data = null;
+  if (i >= 0) { try { data = JSON.parse(raw.slice(i)); } catch { data = null; } }
+  if (data && data.error) throw new Error("openrouter " + (data.error.message || "error"));
+  const text =
+    data && data.choices && data.choices[0] && data.choices[0].message
+      ? String(data.choices[0].message.content || "").trim()
+      : "";
+  return assertUsable(cleanMarkdown(text), "openrouter");
+}
+
 /* ---------- Provider utama opsional: Groq (butuh GROQ_API_KEY) ---------- */
 async function groq(prompt, instruction, timeoutMs) {
   if (!GROQ_API_KEY) throw new Error("groq nonaktif (GROQ_API_KEY kosong)");
@@ -199,6 +265,7 @@ async function groq(prompt, instruction, timeoutMs) {
         model: GROQ_MODEL,
         messages: [{ role: "user", content }],
         temperature: 0.7,
+        max_completion_tokens: GROQ_MAX_TOKENS,
       }),
     },
     timeoutMs
@@ -281,7 +348,8 @@ async function cici(prompt, instruction, timeoutMs) {
 // `maxMs` = batas per-provider; garzai/overchat sengaja pendek agar yang stall
 // cepat dilepas dan giliran berikutnya masih kebagian anggaran.
 const PROVIDERS = [
-  { name: "groq", fn: groq, maxMs: 20000 },
+  { name: "openrouter", fn: openrouter, maxMs: 45000 },
+  { name: "groq", fn: groq, maxMs: 40000 },
   { name: "garzai", fn: garzai, maxMs: 14000 },
   { name: "overchat", fn: overchat, maxMs: 14000 },
   { name: "garzai-2", fn: garzai, maxMs: 14000 },
@@ -322,12 +390,20 @@ async function generateText(prompt, instruction, opts) {
   throw err;
 }
 
-/* ---------- Assistant (chatbot) — GarzAI utama, lalu MetaAI, Cici, Claude ---------- */
+/* ---------- Assistant (chatbot) — OpenRouter/Groq utama, lalu GarzAI, MetaAI, Cici, Claude ---------- */
 
 async function assistant(prompt, context) {
   const full = context ? context + "\n\nPertanyaan admin: " + prompt : prompt;
-  // Utama: Groq bila GROQ_API_KEY di-set (paling andal dari Vercel); tanpa key
-  // dilewati cepat dan jatuh ke GarzAI seperti sebelumnya.
+  // Utama: OpenRouter bila OPENROUTER_API_KEY di-set (andal dari Vercel, model
+  // gratis dengan fallback otomatis); tanpa key dilewati cepat.
+  try {
+    const text = await openrouter(prompt, context || "");
+    if (text) return text;
+  } catch (err) {
+    // lanjut ke fallback
+  }
+  // Utama-2: Groq bila GROQ_API_KEY di-set; tanpa key dilewati cepat dan jatuh
+  // ke GarzAI seperti sebelumnya.
   try {
     const text = await groq(prompt, context || "");
     if (text) return text;
