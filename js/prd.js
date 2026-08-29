@@ -628,11 +628,9 @@
         return;
       }
       showResult(data.text, "ai");
-      const agentTasks = extractTasksClient(data.text);
-      if (agentTasks.length) {
-        $("agentTasks").value = agentTasks.join("\n");
-        $("agentPanel").hidden = false;
-      }
+      // Ekstraksi kini selalu ≥1 task, jadi panel agent selalu muncul.
+      $("agentTasks").value = extractTasksClient(data.text).join("\n");
+      $("agentPanel").hidden = false;
     } catch (err) {
       showError(friendly(err));
     } finally {
@@ -714,23 +712,53 @@
   /* ---------- AGENT MONITOR ---------- */
   let currentToken = null;
 
+  // Ekstraksi task dari PRD untuk panel "Hubungkan AI Agent". Toleran terhadap
+  // format bebas AI: heading ## atau ###, judul section beragam bahasa, plus
+  // fallback berjenjang supaya SELALU menghasilkan ≥1 task (panel agent tak
+  // pernah gagal muncul hanya karena format PRD tak terduga).
   function extractTasksClient(prd) {
-    const tasks = [];
-    const linesList = String(prd || "").split("\n");
-    let inSection = false;
-    for (const line of linesList) {
-      if (/^##\s/.test(line)) {
-        inSection = /fitur|user stor|milestone|task|features|stories/i.test(line);
-        continue;
-      }
-      if (!inSection) continue;
+    const lines = String(prd || "").split("\n");
+    const SECTION_RE = /fitur|user stor|milestone|task|features|stories|fungsional|functional|requirement|kebutuhan|ruang lingkup|scope|mvp|roadmap|fase|phase|deliverable|modul|module|epic|cakupan/i;
+    const HEADING_RE = /^(#{2,3})\s+(.+)$/;
+    const BOILERPLATE_RE = /ringkasan|latar belakang|overview|tujuan|metrik|kpi|risiko|referensi|glossary|kesimpulan|pendahuluan|daftar isi|appendix|lampiran/i;
+    const clean = (s) => s.replace(/\*\*/g, "").replace(/^[#\s]+/, "").replace(/[:：]\s*$/, "").trim();
+    const bulletTitle = (line) => {
       const m = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/);
-      if (m) {
-        const title = m[1].replace(/\*\*/g, "").trim();
-        if (title.length > 3 && tasks.length < 15) tasks.push(title);
-      }
+      return m ? clean(m[1]) : null;
+    };
+
+    // 1) bullet/numbered di bawah heading yang judulnya cocok kata kunci.
+    const tasks = [];
+    let inSection = false;
+    for (const line of lines) {
+      const h = line.match(HEADING_RE);
+      if (h) { inSection = SECTION_RE.test(h[2]); continue; }
+      if (!inSection) continue;
+      const t = bulletTitle(line);
+      if (t && t.length > 3 && tasks.length < 15) tasks.push(t);
     }
-    return tasks;
+    if (tasks.length) return tasks;
+
+    // 2) fallback: judul-judul section (##/###), buang bagian boilerplate.
+    const headings = [];
+    for (const line of lines) {
+      const h = line.match(HEADING_RE);
+      if (!h) continue;
+      const title = clean(h[2]).replace(/^\d+[.)]\s*/, "");
+      if (title.length > 3 && !BOILERPLATE_RE.test(title) && headings.length < 15) headings.push(title);
+    }
+    if (headings.length) return headings;
+
+    // 3) fallback: bullet mana pun di seluruh dokumen.
+    const bullets = [];
+    for (const line of lines) {
+      const t = bulletTitle(line);
+      if (t && t.length > 3 && bullets.length < 10) bullets.push(t);
+    }
+    if (bullets.length) return bullets;
+
+    // 4) jaring pengaman: minimal satu task agar user tetap dapat token & bisa edit.
+    return ["Setup proyek & scaffolding"];
   }
 
   function renderProjects(projects) {
@@ -874,11 +902,10 @@
     setTimeout(() => {
       showResult(md, aiFailed ? "template" : "ai");
       setGenLoading(false);
-      const agentTasks = extractTasksClient(md);
-      if (agentTasks.length) {
-        $("agentTasks").value = agentTasks.join("\n");
-        $("agentPanel").hidden = false;
-      }
+      // Ekstraksi kini selalu ≥1 task, jadi panel agent selalu muncul (baik hasil
+      // AI maupun template) — user pasti mendapat prompt token & pantauan agent.
+      $("agentTasks").value = extractTasksClient(md).join("\n");
+      $("agentPanel").hidden = false;
       if (aiFailed) {
         $("prdError").textContent = "AI sedang tidak tersedia, PRD dibuat dengan mode template. Coba lagi nanti untuk hasil AI.";
         $("prdError").hidden = false;

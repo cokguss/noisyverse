@@ -920,23 +920,49 @@ app.post("/api/ai/prd-refine", rateLimit, async (req, res, next) => {
   }
 });
 
+// Ekstraksi task dari PRD (fallback bila klien tak mengirim task list). Logika
+// harus SAMA dengan extractTasksClient di js/prd.js: heading ##/###, judul section
+// beragam, plus fallback berjenjang supaya selalu menghasilkan ≥1 task dan
+// POST /api/projects tak pernah menolak "Tidak ada task".
 function extractTasksFromPrd(prd) {
-  const tasks = [];
   const lines = String(prd || "").split("\n");
+  const SECTION_RE = /fitur|user stor|milestone|task|features|stories|fungsional|functional|requirement|kebutuhan|ruang lingkup|scope|mvp|roadmap|fase|phase|deliverable|modul|module|epic|cakupan/i;
+  const HEADING_RE = /^(#{2,3})\s+(.+)$/;
+  const BOILERPLATE_RE = /ringkasan|latar belakang|overview|tujuan|metrik|kpi|risiko|referensi|glossary|kesimpulan|pendahuluan|daftar isi|appendix|lampiran/i;
+  const clean = (s) => s.replace(/\*\*/g, "").replace(/^[#\s]+/, "").replace(/[:：]\s*$/, "").trim();
+  const bulletTitle = (line) => {
+    const m = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/);
+    return m ? clean(m[1]) : null;
+  };
+
+  const tasks = [];
   let inSection = false;
   for (const line of lines) {
-    if (/^##\s/.test(line)) {
-      inSection = /fitur|user stor|milestone|task|features|stories/i.test(line);
-      continue;
-    }
+    const h = line.match(HEADING_RE);
+    if (h) { inSection = SECTION_RE.test(h[2]); continue; }
     if (!inSection) continue;
-    const m = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/);
-    if (m) {
-      const title = m[1].replace(/\*\*/g, "").trim();
-      if (title.length > 3 && tasks.length < 15) tasks.push(title);
-    }
+    const t = bulletTitle(line);
+    if (t && t.length > 3 && tasks.length < 15) tasks.push(t);
   }
-  return tasks;
+  if (tasks.length) return tasks;
+
+  const headings = [];
+  for (const line of lines) {
+    const h = line.match(HEADING_RE);
+    if (!h) continue;
+    const title = clean(h[2]).replace(/^\d+[.)]\s*/, "");
+    if (title.length > 3 && !BOILERPLATE_RE.test(title) && headings.length < 15) headings.push(title);
+  }
+  if (headings.length) return headings;
+
+  const bullets = [];
+  for (const line of lines) {
+    const t = bulletTitle(line);
+    if (t && t.length > 3 && bullets.length < 10) bullets.push(t);
+  }
+  if (bullets.length) return bullets;
+
+  return ["Setup proyek & scaffolding"];
 }
 
 app.post("/api/projects", rateLimit, async (req, res, next) => {
