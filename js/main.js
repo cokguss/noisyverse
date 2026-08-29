@@ -254,9 +254,13 @@
       if (!profileMenu || !user) return;
       $("pmAvatar").textContent = user.username.charAt(0).toUpperCase();
       $("pmName").textContent = user.username;
-      $("pmRole").textContent = user.username === "noisy02" ? "Developer" : "Akun Noisy Verse";
+      // Status developer ditentukan server (isDeveloper: flag dev ATAU username
+      // noisy02) dan dikirim lewat publicUser().dev — jangan cocokkan username
+      // di sini, supaya akun developer tambahan ikut terbaca.
+      const isDev = user.dev === true || user.username === "noisy02";
+      $("pmRole").textContent = isDev ? "Developer" : "Akun Noisy Verse";
       const adminLink = document.getElementById("pmAdmin");
-      if (adminLink) adminLink.hidden = user.username !== "noisy02";
+      if (adminLink) adminLink.hidden = !isDev;
     };
 
     const closeMenu = () => { if (profileMenu) profileMenu.hidden = true; };
