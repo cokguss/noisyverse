@@ -229,13 +229,22 @@ async function cici(prompt, instruction, timeoutMs) {
 // andal saat kredit claude habis: sanggup prompt besar, patuh instruksi, cepat) →
 // overchat (juga sanggup prompt besar, lebih lambat) → unliai/cici/metaai (upaya
 // terakhir; sering menolak/kehabisan kuota).
+// Urutan: garzai dulu (satu-satunya provider gratis yang benar-benar hidup dari
+// datacenter Vercel — ~5s saat sehat), lalu overchat, lalu garzai DICOBA LAGI.
+// Dari Vercel garzai kadang menggantung/stall di koneksi SSE (abort di ~13s)
+// meski warm-nya cepat; percobaan kedua dengan koneksi baru biasanya lolos.
+// haidarxd ditaruh terakhir: kuotanya habis (502 cepat) jadi percuma di depan,
+// tapi tetap dipertahankan sebagai fallback kualitas terbaik bila kredit di-top-up.
+// `maxMs` = batas per-provider; garzai/overchat sengaja pendek agar yang stall
+// cepat dilepas dan giliran berikutnya masih kebagian anggaran.
 const PROVIDERS = [
-  { name: "haidarxd", fn: haidarxd },
-  { name: "garzai", fn: garzai },
-  { name: "overchat", fn: overchat },
+  { name: "garzai", fn: garzai, maxMs: 14000 },
+  { name: "overchat", fn: overchat, maxMs: 14000 },
+  { name: "garzai-2", fn: garzai, maxMs: 14000 },
   { name: "unliai", fn: unliai },
   { name: "cici", fn: cici },
-  { name: "metaai", fn: metaai }
+  { name: "metaai", fn: metaai },
+  { name: "haidarxd", fn: haidarxd }
 ];
 
 async function generateText(prompt, instruction, opts) {
@@ -251,12 +260,11 @@ async function generateText(prompt, instruction, opts) {
     if (budgetMs) {
       const left = budgetMs - (Date.now() - started);
       if (left < 5000) { errors.push(provider.name + ": waktu habis"); continue; }
-      // Beri tiap provider timeout penuh (AI_TIMEOUT_MS) selama sisa anggaran masih
-      // memadai — JANGAN dibagi rata. Pembagian rata dulu menyisakan garzai hanya
-      // ~8s padahal dari datacenter Vercel ia butuh ~14s, sehingga selalu di-abort
-      // meski provider itu sehat. Batas total tetap dijaga oleh cek `left < 5000`
-      // di atas, jadi chain tak akan menembus 60s.
-      perCall = Math.min(AI_TIMEOUT_MS, left);
+      // Beri tiap provider timeout penuh (maxMs-nya, atau AI_TIMEOUT_MS) selama sisa
+      // anggaran masih memadai — JANGAN dibagi rata. Pembagian rata dulu menyisakan
+      // garzai hanya ~8s padahal dari Vercel ia butuh ~13s, sehingga selalu di-abort
+      // meski sehat. Batas total tetap dijaga oleh cek `left < 5000` di atas.
+      perCall = Math.min(provider.maxMs || AI_TIMEOUT_MS, left);
     }
     try {
       const text = await provider.fn(prompt, instruction, perCall);
