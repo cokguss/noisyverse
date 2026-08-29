@@ -7,6 +7,10 @@ const METAAI_URL = process.env.METAAI_URL || "https://api.ikyyxd.my.id/ai/metaai
 // provider menggantung 90s, function mati sebelum fallback dicoba dan pengguna
 // dapat "AI sedang tidak tersedia" padahal provider kedua sehat.
 const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS, 10) || 17000;
+// Anggaran default untuk seluruh chain. Empat provider × AI_TIMEOUT_MS = 68s, sudah
+// melewati batas 60s Vercel Hobby: function akan dibunuh sebelum sempat membalas
+// apa pun, jadi pemanggil kehilangan pesan error maupun fallback template-nya.
+const AI_CHAIN_BUDGET_MS = parseInt(process.env.AI_CHAIN_BUDGET_MS, 10) || 42000;
 
 async function fetchWithTimeout(url, opts, ms) {
   const controller = new AbortController();
@@ -78,7 +82,14 @@ async function haidarxd(prompt, instruction, timeoutMs) {
     },
     body: JSON.stringify({ message, thinking: false })
   }, timeoutMs);
-  if (!res.ok) throw new Error("haidarxd " + res.status);
+  if (!res.ok) {
+    // 502 dari gateway ini biasanya membungkus pesan kuota Anthropic ("You've reached
+    // your plan quota"). Tanpa dibaca, log hanya berisi "haidarxd 502" dan orang
+    // mengira endpoint-nya rusak padahal kreditnya yang habis.
+    const body = await res.text().catch(() => "");
+    if (/plan quota|credit|insufficient/i.test(body)) throw new Error("haidarxd kuota habis");
+    throw new Error("haidarxd " + res.status);
+  }
   const data = await res.json().catch(() => null);
   const text = cleanMarkdown(extractAiText(data));
   return assertUsable(text, "haidarxd");
@@ -105,26 +116,46 @@ async function metaai(prompt, instruction, timeoutMs) {
   return assertUsable(cleanMarkdown(text), "metaai");
 }
 
+/* ---------- Provider 4: Cici ---------- */
+const CICI_URL = process.env.CICI_URL || "https://api.ikyyxd.my.id/ai/cici?prompt=";
+// Satu-satunya provider gratis yang masih menjawab saat metaai 500 ("insufficient
+// tokens") dan unliai menggantung. Batas praktisnya prompt pendek: pada ~5 KB dia
+// balas 500 "timeout of 30000ms exceeded", jadi tempatkan setelah unliai.
+async function cici(prompt, instruction, timeoutMs) {
+  const full = instruction ? instruction + "\n\n" + prompt : prompt;
+  const res = await fetchWithTimeout(CICI_URL + encodeURIComponent(full), undefined, timeoutMs);
+  if (!res.ok) throw new Error("cici " + res.status);
+  const data = await res.json().catch(() => null);
+  const text = data && data.result ? String(data.result.reply || "").trim() : "";
+  return assertUsable(cleanMarkdown(text), "cici");
+}
+
 /* ---------- Chain ---------- */
 const PROVIDERS = [
   { name: "haidarxd", fn: haidarxd },
   { name: "unliai", fn: unliai },
+  { name: "cici", fn: cici },
   { name: "metaai", fn: metaai }
 ];
 
 async function generateText(prompt, instruction, opts) {
-  // budgetMs = anggaran waktu total untuk SELURUH chain. Tanpa ini, tiga provider
+  // budgetMs = anggaran waktu total untuk SELURUH chain. Tanpa ini, empat provider
   // × AI_TIMEOUT_MS bisa melewati batas 60s Vercel Hobby dan function mati sebelum
   // sempat membalas apa pun (pemanggil kehilangan fallback-nya sendiri).
-  const budgetMs = opts && opts.budgetMs > 0 ? opts.budgetMs : 0;
+  const budgetMs = opts && opts.budgetMs > 0 ? opts.budgetMs : AI_CHAIN_BUDGET_MS;
   const started = Date.now();
   const errors = [];
-  for (const provider of PROVIDERS) {
+  for (let i = 0; i < PROVIDERS.length; i++) {
+    const provider = PROVIDERS[i];
     let perCall;
     if (budgetMs) {
       const left = budgetMs - (Date.now() - started);
-      if (left < 4000) { errors.push(provider.name + ": waktu habis"); continue; }
-      perCall = Math.min(AI_TIMEOUT_MS, left);
+      if (left < 5000) { errors.push(provider.name + ": waktu habis"); continue; }
+      // Bagi sisa waktu rata ke provider yang belum dicoba. Tanpa pembagian ini satu
+      // provider yang menggantung (unliai sering begitu) menghabiskan seluruh anggaran
+      // dan provider sehat di belakangnya tidak pernah kebagian giliran.
+      const share = left / (PROVIDERS.length - i);
+      perCall = Math.min(AI_TIMEOUT_MS, Math.max(6000, share));
     }
     try {
       const text = await provider.fn(prompt, instruction, perCall);
@@ -137,7 +168,6 @@ async function generateText(prompt, instruction, opts) {
 }
 
 /* ---------- Assistant (chatbot) — MetaAI utama, lalu Cici, lalu Claude ---------- */
-const CICI_URL = process.env.CICI_URL || "https://api.ikyyxd.my.id/ai/cici?prompt=";
 
 async function assistant(prompt, context) {
   const full = context ? context + "\n\nPertanyaan admin: " + prompt : prompt;
