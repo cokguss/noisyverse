@@ -678,11 +678,12 @@ app.get("/api/health", (req, res) => {
 app.get("/api/ai/_diag", async (req, res) => {
   if (req.query.key !== "diag-nv-9f3a") return res.status(401).json({ ok: false });
   try {
-    const results = await ai.diagProviders(
-      "Sebut 3 fitur inti aplikasi todo list dalam poin singkat.",
-      "Jawab Bahasa Indonesia.",
-      18000
-    );
+    const prompt = req.query.prompt
+      ? String(req.query.prompt)
+      : "Sebut 3 fitur inti aplikasi todo list dalam poin singkat.";
+    const perMs = parseInt(req.query.ms, 10) || 18000;
+    const only = req.query.only ? String(req.query.only) : null;
+    const results = await ai.diagProviders(prompt, "Jawab Bahasa Indonesia.", perMs, only);
     res.json({ ok: true, results });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
