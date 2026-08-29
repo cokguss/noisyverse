@@ -707,7 +707,22 @@ app.post("/api/ai/prd", rateLimit, async (req, res, next) => {
     const { prompt, instruction } = req.body || {};
     if (!prompt || !String(prompt).trim()) throw httpError(400, "Field 'prompt' wajib diisi.");
 
-    const { text, provider } = await ai.generateText(String(prompt).trim(), String(instruction || "").trim());
+    let text, provider;
+    try {
+      ({ text, provider } = await ai.generateText(String(prompt).trim(), String(instruction || "").trim()));
+    } catch (aiErr) {
+      // Kalau SELURUH chain provider AI gagal, jangan sembunyikan di balik pesan
+      // 500 generik — sampaikan sebagai 502 (masalah upstream, bukan bug server)
+      // beserta ringkasan provider mana yang gagal & alasannya. Ini actionable
+      // untuk pengguna ("coba lagi") dan untuk kami saat mendiagnosis dari log.
+      const detail = Array.isArray(aiErr.providerErrors) && aiErr.providerErrors.length
+        ? " (" + aiErr.providerErrors.join(" | ") + ")"
+        : "";
+      throw Object.assign(
+        httpError(502, "AI sedang sibuk/limit di semua penyedia. Coba lagi sebentar lagi." + detail),
+        { code: "AI_UPSTREAM_FAILED" }
+      );
+    }
 
     if (!isDev) {
       const users = await loadUsers();
