@@ -114,7 +114,64 @@ async function haidarxd(prompt, instruction, timeoutMs) {
   return assertUsable(text, "haidarxd");
 }
 
-/* ---------- Provider 2: Unliai ---------- */
+/* ---------- Provider 2: GarzAI (llama3.1-8b, SSE streaming) ----------
+ * Endpoint gratis yang — beda dari unliai/cici — SANGGUP menerima prompt besar
+ * (README/ringkasan HTML 3-6 KB, ukuran khas fitur reverse) tanpa menolak, patuh
+ * pada instruksi ("Build me...", heading), dan balas ~1-2 detik. Karena claude
+ * berbayar sering kehabisan kuota, ini fallback pertama yang paling andal saat ini.
+ * Jawaban dialirkan sebagai Server-Sent Events: baris `data: {"content":"..."}`.
+ */
+const GARZAI_URL = process.env.GARZAI_URL || "https://garz-ai.vercel.app/api/chat";
+const GARZAI_MODEL = process.env.GARZAI_MODEL || "llama3.1-8b";
+
+async function garzai(prompt, instruction, timeoutMs) {
+  const content = instruction
+    ? String(instruction).trim() + "\n\n" + String(prompt).trim()
+    : String(prompt).trim();
+  // AbortController sendiri: timeout harus mencakup SELURUH pembacaan stream, bukan
+  // hanya sampai header diterima (fetchWithTimeout membebaskan timer begitu fetch
+  // resolve, jadi tak cocok untuk body streaming yang panjang).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs || AI_TIMEOUT_MS);
+  try {
+    const res = await fetch(GARZAI_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent":
+          "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36",
+        "Origin": "https://garz-ai.vercel.app",
+        "Referer": "https://garz-ai.vercel.app/",
+      },
+      body: JSON.stringify({ model: GARZAI_MODEL, messages: [{ role: "user", content }] }),
+    });
+    if (!res.ok) throw new Error("garzai " + res.status);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = "";
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      // Baris terakhir bisa terpotong di tengah chunk — simpan untuk chunk berikutnya.
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const s = line.slice(6).trim();
+        if (!s || s === "[DONE]") continue;
+        try { const p = JSON.parse(s); if (p.content) full += p.content; } catch {}
+      }
+    }
+    return assertUsable(cleanMarkdown(full.trim()), "garzai");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ---------- Provider 3: Unliai ---------- */
 async function unliai(prompt, instruction, timeoutMs) {
   const full = instruction ? instruction + "\n\n" + prompt : prompt;
   const res = await fetchWithTimeout(UNLIAI_URL + encodeURIComponent(full), undefined, timeoutMs);
@@ -150,8 +207,12 @@ async function cici(prompt, instruction, timeoutMs) {
 }
 
 /* ---------- Chain ---------- */
+// Urutan sengaja: claude berbayar dulu (kualitas terbaik) → garzai (fallback paling
+// andal saat kredit claude habis: sanggup prompt besar, patuh instruksi, cepat) →
+// unliai/cici/metaai (upaya terakhir; sering menolak/kehabisan kuota).
 const PROVIDERS = [
   { name: "haidarxd", fn: haidarxd },
+  { name: "garzai", fn: garzai },
   { name: "unliai", fn: unliai },
   { name: "cici", fn: cici },
   { name: "metaai", fn: metaai }
@@ -186,11 +247,18 @@ async function generateText(prompt, instruction, opts) {
   throw new Error("Semua provider AI gagal (" + errors.join(" | ") + ")");
 }
 
-/* ---------- Assistant (chatbot) — MetaAI utama, lalu Cici, lalu Claude ---------- */
+/* ---------- Assistant (chatbot) — GarzAI utama, lalu MetaAI, Cici, Claude ---------- */
 
 async function assistant(prompt, context) {
   const full = context ? context + "\n\nPertanyaan admin: " + prompt : prompt;
-  // Utama: MetaAI (andal & natural).
+  // Utama: GarzAI — paling andal saat ini (MetaAI sering 500 "insufficient tokens").
+  try {
+    const text = await garzai(prompt, context || "");
+    if (text) return text;
+  } catch (err) {
+    // lanjut ke fallback
+  }
+  // Fallback 1: MetaAI (natural bila sedang punya kuota).
   try {
     const res = await fetchWithTimeout(METAAI_URL + encodeURIComponent(full));
     if (res.ok) {
@@ -201,7 +269,7 @@ async function assistant(prompt, context) {
   } catch (err) {
     // lanjut ke fallback
   }
-  // Fallback 1: Cici.
+  // Fallback 2: Cici.
   try {
     const res = await fetchWithTimeout(CICI_URL + encodeURIComponent(full));
     if (res.ok) {
@@ -212,8 +280,8 @@ async function assistant(prompt, context) {
   } catch (err) {
     // lanjut ke fallback
   }
-  // Fallback 2: Claude berbayar — chatbot jangan sampai mati total kalau dua
-  // provider gratis di atas kehabisan kuota (MetaAI pernah 500 "insufficient tokens").
+  // Fallback 3: Claude berbayar — chatbot jangan sampai mati total kalau provider
+  // gratis di atas kehabisan kuota.
   return haidarxd(prompt, context || "");
 }
 
