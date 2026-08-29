@@ -61,19 +61,47 @@ async function getCodeChat(code) {
 }
 
 async function broadcast(message) {
+  // Tanpa token, callApi() akan menembak URL "bot/" dan semua gagal tanpa sebab
+  // yang jelas di panel admin. Lebih baik bilang terus terang.
+  if (!TELEGRAM_TOKEN) {
+    const err = new Error(
+      "Bot Telegram belum aktif — TELEGRAM_BOT_TOKEN belum di-set di server."
+    );
+    err.status = 503;
+    throw err;
+  }
   const { chats } = await loadState();
+  const ids = Object.keys(chats);
+  if (!ids.length) {
+    const err = new Error(
+      "Belum ada chat terdaftar. Broadcast hanya bisa dikirim ke pengguna yang " +
+        "pernah membuka /start di bot (@" + (botUsername || "bot") + ")."
+    );
+    err.status = 400;
+    throw err;
+  }
   let sent = 0, failed = 0;
-  for (const chatId of Object.keys(chats)) {
+  for (const chatId of ids) {
     try {
       const r = await callApi("sendMessage", {
         chat_id: chatId,
         text: "📢 <b>Pengumuman Noisy Verse</b>\n\n" + message,
         parse_mode: "HTML",
       });
-      if (r && r.ok) sent++; else failed++;
+      if (r && r.ok) sent++;
+      else {
+        failed++;
+        // 403 = pengguna memblokir bot; buang supaya tidak dicoba lagi selamanya.
+        if (r && (r.error_code === 403 || r.error_code === 400)) delete chats[chatId];
+      }
     } catch {
       failed++;
     }
+  }
+  if (failed) {
+    const s = await loadState();
+    s.chats = chats;
+    await saveState(s).catch(() => {});
   }
   return { sent, failed };
 }
@@ -126,6 +154,20 @@ async function loadBotUsername() {
     const data = await callApi("getMe");
     if (data.ok) botUsername = data.result.username;
   } catch {}
+}
+
+/**
+ * Ambil username bot untuk dipakai frontend (tombol "konfirmasi ke bot").
+ * Di mode webhook tidak ada start() yang memanggil getMe, jadi resolve di sini
+ * dan cache di module scope — satu panggilan per cold start, gratis saat warm.
+ * TELEGRAM_BOT_USERNAME (bila di-set) dipakai lebih dulu supaya tanpa jaringan.
+ */
+async function resolveBotUsername() {
+  if (process.env.TELEGRAM_BOT_USERNAME) return process.env.TELEGRAM_BOT_USERNAME;
+  if (botUsername) return botUsername;
+  if (!TELEGRAM_TOKEN) return null;
+  await loadBotUsername();
+  return botUsername;
 }
 
 async function handlePhoto(msg) {
@@ -317,6 +359,8 @@ module.exports = {
   processUpdate,
   setWebhook,
   getBotUsername: () => botUsername,
+  resolveBotUsername,
   getKnownChatCount,
   broadcast,
+  botConfigured: () => Boolean(TELEGRAM_TOKEN && TELEGRAM_OWNER_ID),
 };

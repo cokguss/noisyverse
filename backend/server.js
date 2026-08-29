@@ -652,10 +652,15 @@ app.get("/api/health", (req, res) => {
 app.get("/api/config", async (req, res) => {
   let maintenance = false;
   try { maintenance = (await loadConfig()).maintenance === true; } catch {}
+  // Di mode webhook tidak ada start() yang meng-cache username bot, jadi
+  // resolve sekarang (sekali per cold start) — kalau null, halaman bayar
+  // menyembunyikan tombol "konfirmasi ke bot" dan pengguna kehilangan jalur bayar.
+  let botUsername = null;
+  try { botUsername = await bot.resolveBotUsername(); } catch {}
   res.json({
     ok: true,
-    botUsername: process.env.TELEGRAM_BOT_USERNAME || bot.getBotUsername() || null,
-    botActive: true,
+    botUsername,
+    botActive: bot.botConfigured(),
     maintenance
   });
 });
