@@ -903,39 +903,44 @@
         '<label class="field-label" for="clarifyA' + i + '">' + escapeHtml(it.q) + '</label>' +
         (opts ? '<div class="clarify-opts" data-q="' + i + '">' + opts + '</div>' : '') +
         '<input type="text" id="clarifyA' + i + '" class="try-input clarify-input" data-q="' + escapeHtml(it.q) + '" autocomplete="off" placeholder="' +
-          (it.options.length ? (isEn() ? "Pick above or type your own answer" : "Pilih di atas atau tulis jawaban sendiri") : (isEn() ? "Your answer (optional)" : "Jawaban kamu (opsional)")) + '" />' +
+          (it.options.length ? (isEn() ? "Pick one or more above, or type your own" : "Pilih satu atau beberapa di atas, atau tulis sendiri") : (isEn() ? "Your answer (optional)" : "Jawaban kamu (opsional)")) + '" />' +
       '</div>';
     }).join("");
 
-    // Klik opsi: isi input, tandai aktif; klik ulang = batal pilih.
+    // Klik opsi: multi-select — tiap opsi bisa dipilih bersamaan, klik ulang =
+    // batal. Input teks di-isi gabungan semua opsi terpilih (dipisah ", "), dan
+    // user tetap boleh mengetik/menambah jawaban sendiri.
     norm.forEach((it, i) => {
       const input = wrap.querySelector("#clarifyA" + i);
       const group = wrap.querySelector('.clarify-opts[data-q="' + i + '"]');
       if (!group) return;
       const buttons = group.querySelectorAll(".clarify-opt");
+      const syncInputFromButtons = () => {
+        if (!input) return;
+        const picked = Array.from(buttons)
+          .filter((b) => b.classList.contains("active"))
+          .map((b) => b.textContent);
+        input.value = picked.join(", ");
+      };
       buttons.forEach((btn) => {
         btn.addEventListener("click", () => {
-          const wasActive = btn.classList.contains("active");
-          buttons.forEach((b) => b.classList.remove("active"));
-          if (wasActive) {
-            if (input) input.value = "";
-          } else {
-            btn.classList.add("active");
-            if (input) input.value = btn.textContent;
-          }
+          btn.classList.toggle("active");
+          syncInputFromButtons();
         });
       });
-      // Kalau user mengetik manual, sinkronkan highlight opsi.
+      // Kalau user mengetik manual, sinkronkan highlight: opsi aktif bila teksnya
+      // muncul sebagai salah satu bagian (dipisah koma) dari isian.
       if (input) {
         input.addEventListener("input", () => {
-          buttons.forEach((b) => b.classList.toggle("active", b.textContent === input.value.trim()));
+          const tokens = input.value.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+          buttons.forEach((b) => b.classList.toggle("active", tokens.includes(b.textContent.trim().toLowerCase())));
         });
       }
     });
     $("clarifyTitle").textContent = isEn() ? "The AI needs a bit more info" : "AI butuh sedikit info tambahan";
     $("clarifyDesc").textContent = isEn()
-      ? "Answer these so your PRD is more accurate — you can skip any of them."
-      : "Jawab pertanyaan berikut agar PRD-nya lebih akurat — boleh juga dilewati.";
+      ? "Answer these so your PRD is more accurate — you can pick more than one option per question, or skip any."
+      : "Jawab pertanyaan berikut agar PRD-nya lebih akurat — boleh pilih lebih dari satu opsi tiap pertanyaan, atau dilewati.";
     $("clarifyContinueBtn").innerHTML = '<i class="ph ph-arrow-right"></i> ' + (isEn() ? "Continue to PRD" : "Lanjut Buat PRD");
     $("clarifySkipBtn").textContent = isEn() ? "Skip" : "Lewati";
     $("clarifyPanel").hidden = false;

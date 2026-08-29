@@ -308,22 +308,4 @@ async function assistant(prompt, context) {
   return haidarxd(prompt, context || "");
 }
 
-// Diagnostik sementara: uji tiap provider satu per satu dari lingkungan yang
-// memanggilnya (mis. Vercel syd1) dan laporkan waktu + hasil/errornya. Dipakai
-// untuk membuktikan provider mana yang benar-benar hidup dari datacenter.
-async function diagProviders(prompt, instruction, perMs, only) {
-  const out = [];
-  for (const p of PROVIDERS) {
-    if (only && p.name !== only) continue;
-    const t = Date.now();
-    try {
-      const text = await p.fn(prompt, instruction, perMs || 18000);
-      out.push({ name: p.name, ok: true, ms: Date.now() - t, len: (text || "").length });
-    } catch (err) {
-      out.push({ name: p.name, ok: false, ms: Date.now() - t, error: err.message });
-    }
-  }
-  return out;
-}
-
-module.exports = { generateText, extractAiText, cleanMarkdown, assistant, diagProviders };
+module.exports = { generateText, extractAiText, cleanMarkdown, assistant };
