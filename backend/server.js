@@ -308,9 +308,11 @@ function cleanRepoUrl(raw) {
 
 const REVERSE_UPSTREAM_TIMEOUT_MS = parseInt(process.env.REVERSE_TIMEOUT_MS, 10) || 22000;
 // Anggaran waktu untuk chain AI di dalam reverse. Jalur AI sekarang jalan PERTAMA,
-// dan kalau gagal masih ada GitReverse (≤22s) setelahnya — keduanya harus muat dalam
-// batas 60s function Vercel Hobby, termasuk ~15s fetch halaman targetnya.
-const REVERSE_AI_BUDGET_MS = parseInt(process.env.REVERSE_AI_BUDGET_MS, 10) || 20000;
+// dan kalau gagal masih ada GitReverse (≤22s) setelahnya. Hitung kasus terburuk
+// website: fetch halaman 15s + AI 14s + GitReverse 22s = 51s, masih di bawah batas
+// 60s function Vercel Hobby. Menaikkan angka ini bisa membuat function dibunuh
+// sebelum fallback selesai, dan pengguna tidak dapat hasil apa pun.
+const REVERSE_AI_BUDGET_MS = parseInt(process.env.REVERSE_AI_BUDGET_MS, 10) || 14000;
 
 async function fetchWithTimeout(url, opts, ms) {
   const controller = new AbortController();
